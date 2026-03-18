@@ -1,0 +1,2399 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Acode OS - Ultimate</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
+        
+        body { background: #0f172a; color: white; height: 100vh; width: 100vw; overflow: hidden; position: fixed; }
+
+        /* DESKTOP COM O PULO DO GATO */
+        #desktop {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 25px;
+            align-content: flex-start;
+            height: calc(100vh - 50px);
+        }
+
+        .icon {
+            width: 85px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 13px;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+        }
+        .icon:active { transform: scale(0.9); }
+        .icon span { margin-top: 5px; }
+
+        /* JANELAS */
+        .window {
+            position: absolute;
+            width: 320px;
+            height: 400px;
+            max-width: 95vw;
+            max-height: 80vh;
+            background: #1e293b;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+            display: none;
+            flex-direction: column;
+            z-index: 10;
+            top: 40px;
+            left: 20px;
+        }
+
+        .header {
+            background: #020617;
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 12px 12px 0 0;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .header button { background: #ef4444; border: none; color: white; border-radius: 50%; width: 22px; height: 22px; cursor: pointer; }
+
+        .content { flex: 1; padding: 15px; overflow: auto; }
+
+        /* BARRA DE TAREFAS */
+        #taskbar {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 50px;
+            background: rgba(2, 6, 23, 0.9);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+
+        /* INPUTS GERAIS */
+        input, textarea, button.action {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            outline: none;
+            background: #334155;
+            color: white;
+            margin-bottom: 10px;
+        }
+        button.action { background: #3b82f6; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="desktop">
+  
+  
+  
+  <div class="icon" onclick="toggleApp('browserApp')">🌐<br><span>Navegador</span></div>
+
+  
+    <div class="icon" onclick="toggleApp('files'); renderFiles();">📂<br><span>Arquivos</span></div>
+    <div class="icon" onclick="toggleApp('storeApp'); loadStore();">🛍️<br><span>Loja</span></div>
+</div>
+
+<div id="files" class="window" style="z-index: 50;">
+    <div class="header">
+        Meus Arquivos
+        <button onclick="toggleApp('files')">X</button>
+    </div>
+    <div class="content" id="fileManagerContent">
+        <div id="fileList">
+            </div>
+        
+        <div id="fileViewer" style="display:none; margin-top:15px; padding:15px; background:#020617; border-radius:10px; border:1px solid #3b82f6;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                <b id="viewTitle" style="font-size:12px; color:#3b82f6;">Arquivo</b>
+                <button onclick="closeViewer()" style="background:none; border:none; color:white; font-weight:bold;">VOLTAR</button>
+            </div>
+            <div id="viewBody" style="max-height:200px; overflow:auto; font-size:14px; color:white; line-height:1.5;">
+                </div>
+        </div>
+
+        <button class="action" style="margin-top:20px; background:transparent; border:1px solid #ef4444; color:#ef4444; font-size:10px;" onclick="clearSystemMemory()">LIMPAR TUDO</button>
+    </div>
+</div>
+
+<script>
+    // FUNÇÃO PARA ATUALIZAR A LISTA DE ARQUIVOS
+    function renderFiles() {
+        const list = document.getElementById("fileList");
+        const viewer = document.getElementById("fileViewer");
+        const allFiles = JSON.parse(localStorage.getItem("acode_files")) || [];
+        
+        viewer.style.display = "none"; // Esconde o visualizador ao abrir a lista
+        list.style.display = "block";
+        list.innerHTML = allFiles.length === 0 ? "<p style='text-align:center;color:#64748b;padding:20px;'>Nenhum arquivo encontrado.</p>" : "";
+
+        allFiles.forEach((file, index) => {
+            const div = document.createElement("div");
+            div.style = "background:#334155; padding:12px; border-radius:8px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;";
+            
+            // Se clicar no nome, abre o visualizador
+            div.innerHTML = `
+                <div onclick="openFile(${index})" style="flex:1;">
+                    <span style="font-size:18px; margin-right:8px;">${file.type === 'foto' ? '🖼️' : '📄'}</span>
+                    <b>${file.name}</b><br>
+                    <small style="color:#94a3b8; font-size:10px;">${file.date}</small>
+                </div>
+                <button onclick="deleteFile(${index})" style="background:none; border:none; color:#ef4444; font-size:18px; padding:5px;">×</button>
+            `;
+            list.appendChild(div);
+        });
+    }
+
+    // FUNÇÃO PARA VER O CONTEÚDO DO ARQUIVO
+    function openFile(index) {
+        const allFiles = JSON.parse(localStorage.getItem("acode_files")) || [];
+        const file = allFiles[index];
+        const list = document.getElementById("fileList");
+        const viewer = document.getElementById("fileViewer");
+        const title = document.getElementById("viewTitle");
+        const body = document.getElementById("viewBody");
+
+        list.style.display = "none"; // Esconde a lista
+        viewer.style.display = "block"; // Mostra o visualizador
+        title.innerText = "LENDO: " + file.name;
+
+        // Se for FOTO, cria uma tag <img>. Se for TEXTO, apenas mostra o texto.
+        if (file.type === 'foto') {
+            body.innerHTML = `<img src="${file.data}" style="width:100%; border-radius:5px; border:1px solid #334155;">`;
+        } else {
+            body.innerHTML = `<p style="white-space: pre-wrap;">${file.data}</p>`;
+        }
+    }
+
+    function closeViewer() {
+        document.getElementById("fileViewer").style.display = "none";
+        document.getElementById("fileList").style.display = "block";
+    }
+
+    function deleteFile(i) {
+        let f = JSON.parse(localStorage.getItem("acode_files")) || [];
+        f.splice(i, 1);
+        localStorage.setItem("acode_files", JSON.stringify(f));
+        renderFiles();
+    }
+
+    function clearSystemMemory() {
+        if(confirm("Deseja apagar todos os arquivos do sistema?")) {
+            localStorage.removeItem("acode_files");
+            renderFiles();
+        }
+    }
+</script>
+
+
+</div>
+
+<div id="storeApp" class="window">
+    <div class="header">Acode Store <button onclick="toggleApp('storeApp')">X</button></div>
+    <div class="content">
+        <p style="font-size: 11px; color: #94a3b8; text-align: center; margin-bottom: 15px;">Instale apps conectados ao sistema</p>
+        <div id="appCatalog" style="display: flex; flex-direction: column; gap: 12px;"></div>
+    </div>
+</div>
+
+<div id="browserApp" class="window" style="z-index: 60;">
+    <div class="header">
+        Acode Web
+        <button onclick="toggleApp('browserApp')">X</button>
+    </div>
+    <div class="content" style="display:flex; flex-direction:column; padding:0; height:100%; background:#f1f5f9;">
+        <div style="background:#1e293b; padding:8px; display:flex; gap:5px; border-bottom:1px solid #334155;">
+            <input id="urlInput" type="text" value="https://www.wikipedia.org" 
+                   style="flex:1; margin:0; font-size:12px; padding:8px; border-radius:5px; border:none; background:#0f172a; color:#4ade80; outline:none;">
+            <button onclick="goWeb()" style="background:#3b82f6; color:white; border:none; padding:5px 15px; border-radius:5px; font-weight:bold; cursor:pointer;">IR</button>
+        </div>
+
+        <iframe id="webFrame" src="https://www.wikipedia.org" style="flex:1; border:none; width:100%; background:white;"></iframe>
+
+        <div style="background:#020617; padding:8px; display:flex; justify-content:center; gap:10px;">
+            <button onclick="saveWebLink()" style="background:transparent; color:#4ade80; border:1px solid #4ade80; padding:6px 12px; border-radius:5px; font-size:11px; cursor:pointer;">
+                💾 SALVAR LINK NOS ARQUIVOS
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Função para navegar
+    function goWeb() {
+        let url = document.getElementById("urlInput").value;
+        // Adiciona o https:// caso o usuário esqueça
+        if(!url.startsWith("http")) {
+            url = "https://" + url;
+            document.getElementById("urlInput").value = url;
+        }
+        document.getElementById("webFrame").src = url;
+    }
+
+    // Função para integrar com o seu sistema de Arquivos
+    function saveWebLink() {
+        const currentUrl = document.getElementById("webFrame").src;
+        // Chama a função saveToSystem que já temos no código principal
+        saveToSystem("Link_" + Date.now(), "texto", "URL Salva: " + currentUrl);
+        alert("Endereço salvo com sucesso no Explorador!");
+    }
+</script>
+
+
+<div id="taskbar">
+    <span style="font-size: 12px; color: #64748b;">Acode OS v3.0</span>
+</div>
+
+<script>
+    // --- MOTOR DO SISTEMA (CÉREBRO) ---
+    function toggleApp(id) {
+        const win = document.getElementById(id);
+        win.style.display = (win.style.display === 'flex') ? 'none' : 'flex';
+    }
+
+    function saveToSystem(name, type, content) {
+        let allFiles = JSON.parse(localStorage.getItem("acode_files")) || [];
+        allFiles.push({ id: Date.now(), name, type, data: content, date: new Date().toLocaleTimeString() });
+        localStorage.setItem("acode_files", JSON.stringify(allFiles));
+        if(document.getElementById('files').style.display === 'flex') renderFiles();
+    }
+
+    function renderFiles() {
+        const list = document.getElementById("fileList");
+        const allFiles = JSON.parse(localStorage.getItem("acode_files")) || [];
+        list.innerHTML = allFiles.length === 0 ? "<p style='text-align:center;color:#64748b'>Vazio</p>" : "";
+        allFiles.forEach((file, index) => {
+            const div = document.createElement("div");
+            div.style = "background:#0f172a; padding:10px; border-radius:8px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; border-left:3px solid #3b82f6";
+            div.innerHTML = `<div><b>${file.type === 'foto' ? '🖼️' : '📄'} ${file.name}</b><br><small>${file.date}</small></div>
+                             <button onclick="deleteFile(${index})" style="background:none; border:none; color:#ef4444">X</button>`;
+            list.appendChild(div);
+        });
+    }
+
+    function deleteFile(i) {
+        let f = JSON.parse(localStorage.getItem("acode_files"));
+        f.splice(i,1);
+        localStorage.setItem("acode_files", JSON.stringify(f));
+        renderFiles();
+    }
+
+    function clearSystemMemory() { if(confirm("Apagar tudo?")) { localStorage.clear(); renderFiles(); } }
+
+    // --- CATÁLOGO DA LOJA ---
+    const apps = [
+      
+ 
+
+      
+        {
+            id: "paintApp", nome: "Paint Pro", icon: "🎨", desc: "Desenho integrado",
+            html: `<div id="paintApp" class="window"><div class="header">Paint <button onclick="toggleApp('paintApp')">X</button></div><div class="content"><canvas id="canvas" width="250" height="200" style="background:white; border-radius:5px;"></canvas><button class="action" onclick="saveP()">SALVAR NOS ARQUIVOS</button></div></div>`,
+            btn: `<div id="icon-paintApp" class="icon" onclick="toggleApp('paintApp'); initP();">🎨<br><span>Paint</span></div>`,
+            script: function() {
+                window.initP = () => {
+                    const c = document.getElementById("canvas"); const ctx = c.getContext("2d"); let d = false;
+                    c.onmousedown = () => d = true; c.onmouseup = () => d = false;
+                    c.onmousemove = (e) => { if(d) ctx.fillRect(e.offsetX, e.offsetY, 4, 4); };
+                    window.saveP = () => { saveToSystem("Desenho", "foto", c.toDataURL()); alert("Salvo!"); };
+                }
+            }
+        },
+        {
+            id: "notesApp", nome: "Notas", icon: "📝", desc: "Bloco de notas",
+            html: `<div id="notesApp" class="window"><div class="header">Notas <button onclick="toggleApp('notesApp')">X</button></div><div class="content"><textarea id="nTxt" class="action" style="height:200px; background:#0f172a"></textarea><button class="action" onclick="saveN()">ARQUIVAR</button></div></div>`,
+            btn: `<div id="icon-notesApp" class="icon" onclick="toggleApp('notesApp')">📝<br><span>Notas</span></div>`,
+            script: function() {
+                window.saveN = () => { saveToSystem("Nota", "texto", document.getElementById("nTxt").value); alert("Arquivado!"); };
+            }
+        },
+    
+            {
+            id: "clockApp", 
+            nome: "Relógio Pro", 
+            icon: "🕒", 
+            desc: "Hora e Cronômetro",
+            html: `
+                <div id="clockApp" class="window">
+                    <div class="header">Relógio <button onclick="toggleApp('clockApp')">X</button></div>
+                    <div class="content" style="background:#0f172a; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:15px;">
+                        <div id="digitalClock" style="font-size:32px; font-weight:bold; color:#4ade80; text-shadow: 0 0 10px #22c55e;">00:00:00</div>
+                        
+                        <div style="width:100%; height:1px; background:#334155;"></div>
+                        
+                        <div id="chronoDisplay" style="font-size:20px; color:white;">00:00:00</div>
+                        <div style="display:flex; gap:5px; width:100%;">
+                            <button class="action" style="background:#22c55e" onclick="startChrono()">Iniciar</button>
+                            <button class="action" style="background:#ef4444" onclick="stopChrono()">Parar</button>
+                        </div>
+                        <button class="action" style="background:#475569; margin:0;" onclick="resetChrono()">Zerar</button>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-clockApp" class="icon" onclick="toggleApp('clockApp')">🕒<br><span>Relógio</span></div>`,
+            script: function() {
+                // Relógio em tempo real
+                setInterval(() => {
+                    const now = new Date();
+                    const t = document.getElementById("digitalClock");
+                    if(t) t.innerText = now.toLocaleTimeString();
+                }, 1000);
+
+                // Lógica do Cronômetro
+                let timer;
+                let sec = 0;
+                window.startChrono = () => {
+                    if(timer) return;
+                    timer = setInterval(() => {
+                        sec++;
+                        let h = Math.floor(sec / 3600).toString().padStart(2, '0');
+                        let m = Math.floor((sec % 3600) / 60).toString().padStart(2, '0');
+                        let s = (sec % 60).toString().padStart(2, '0');
+                        document.getElementById("chronoDisplay").innerText = `${h}:${m}:${s}`;
+                    }, 1000);
+                };
+                window.stopChrono = () => { clearInterval(timer); timer = null; };
+                window.resetChrono = () => { stopChrono(); sec = 0; document.getElementById("chronoDisplay").innerText = "00:00:00"; };
+            }
+        },
+
+        {
+            id: "todoApp", 
+            nome: "Tarefas", 
+            icon: "✅", 
+            desc: "Lista de afazeres",
+            html: `
+                <div id="todoApp" class="window">
+                    <div class="header">Minhas Tarefas <button onclick="toggleApp('todoApp')">X</button></div>
+                    <div class="content" style="background:#0f172a; display:flex; flex-direction:column; gap:10px;">
+                        <div style="display:flex; gap:5px;">
+                            <input id="todoInput" placeholder="Nova tarefa..." style="margin:0; flex:1; font-size:12px;">
+                            <button onclick="addTodo()" style="width:40px; background:#4ade80; border:none; border-radius:8px; color:#020617; font-weight:bold; cursor:pointer;">+</button>
+                        </div>
+                        <div id="todoList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:5px; margin-top:10px;">
+                            <p style="text-align:center; color:#64748b; font-size:11px;">Nenhuma tarefa pendente.</p>
+                        </div>
+                        <button class="action" style="background:transparent; border:1px solid #3b82f6; font-size:10px; margin-top:5px;" onclick="saveTasks()">SALVAR NOS ARQUIVOS</button>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-todoApp" class="icon" onclick="toggleApp('todoApp')">✅<br><span>Tarefas</span></div>`,
+            script: function() {
+                window.addTodo = () => {
+                    const input = document.getElementById("todoInput");
+                    const list = document.getElementById("todoList");
+                    if(input.value.trim() === "") return;
+                    
+                    if(list.querySelector('p')) list.innerHTML = "";
+                    
+                    const item = document.createElement("div");
+                    item.style = "background:#1e293b; padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; border-left:3px solid #4ade80;";
+                    item.innerHTML = `<span style="font-size:13px;">${input.value}</span>
+                                     <button onclick="this.parentElement.remove()" style="background:none; border:none; color:#ef4444; font-weight:bold; cursor:pointer;">X</button>`;
+                    list.appendChild(item);
+                    input.value = "";
+                };
+                
+                window.saveTasks = () => {
+                    const list = document.getElementById("todoList");
+                    const tasks = Array.from(list.querySelectorAll('span')).map(s => s.innerText).join(", ");
+                    if(!tasks) return alert("Lista vazia!");
+                    saveToSystem("MinhasTarefas", "texto", "Lista: " + tasks);
+                    alert("Lista de tarefas arquivada!");
+                };
+            }
+        },
+
+        {
+            id: "sysMonitorApp", 
+            nome: "Monitor", 
+            icon: "🖥️", 
+            desc: "Memória do Sistema",
+            html: `
+                <div id="sysMonitorApp" class="window">
+                    <div class="header">Gerenciador de Disco <button onclick="toggleApp('sysMonitorApp')">X</button></div>
+                    <div class="content" style="background:#020617; display:flex; flex-direction:column; gap:15px; padding:20px;">
+                        
+                        <div style="text-align:center;">
+                            <div style="font-size:10px; color:#94a3b8; letter-spacing:1px;">ESPAÇO UTILIZADO</div>
+                            <div id="storagePercent" style="font-size:32px; font-weight:bold; color:#3b82f6;">0%</div>
+                        </div>
+
+                        <div style="width:100%; height:12px; background:#1e293b; border-radius:6px; overflow:hidden; border:1px solid #334155;">
+                            <div id="storageBar" style="width:0%; height:100%; background:linear-gradient(90deg, #3b82f6, #4ade80); transition: width 0.8s ease-in-out;"></div>
+                        </div>
+
+                        <div style="display:flex; justify-content:space-between; font-size:12px; color:#94a3b8;">
+                            <span>Usado: <b id="usedMB" style="color:white;">0 GB</b></span>
+                            <span>Livre: <b id="freeMB" style="color:#4ade80;">64 GB</b></span>
+                        </div>
+
+                        <div id="appCountStatus" style="padding:10px; background:#1e293b; border-radius:8px; border:1px solid #334155; font-size:11px; line-height:1.6;">
+                            </div>
+                        
+                        <p style="font-size:9px; color:#ef4444; text-align:center; font-style:italic;" id="warnMemory"></p>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-sysMonitorApp" class="icon" onclick="toggleApp('sysMonitorApp')">🖥️<br><span>Monitor</span></div>`,
+            script: function() {
+                // Função para calcular memória real baseada nos apps instalados
+                window.updateStorageSystem = () => {
+                    const TOTAL_GB = 64;
+                    const PESO_POR_APP = 4; // Cada app "pesa" 8.5 GB simulados
+                    
+                    // Conta quantos apps estão no Desktop (estão com display flex ou bloco)
+                    const appsInstalados = document.querySelectorAll('#desktop .icon').length - 3; // -3 são os nativos (Navegador, Arquivos, Loja)
+                    
+                    const usado = appsInstalados * PESO_POR_APP;
+                    const livre = TOTAL_GB - usado;
+                    const porcentagem = (usado / TOTAL_GB) * 100;
+
+                    // Atualiza o Visual
+                    if(document.getElementById("storageBar")) {
+                        document.getElementById("storageBar").style.width = porcentagem + "%";
+                        document.getElementById("storagePercent").innerText = Math.round(porcentagem) + "%";
+                        document.getElementById("usedMB").innerText = usado.toFixed(1) + " GB";
+                        document.getElementById("freeMB").innerText = livre.toFixed(1) + " GB";
+                        
+                        document.getElementById("appCountStatus").innerHTML = `
+                            📱 Apps Instalados: <b>${appsInstalados}</b><br>
+                            📦 Espaço Total: <b>${TOTAL_GB} GB</b><br>
+                            🚀 Capacidade: <b>Mais ${Math.floor(livre / PESO_POR_APP)} apps</b>
+                        `;
+                        
+                        // Mensagem de aviso se estiver quase cheio
+                        const warn = document.getElementById("warnMemory");
+                        warn.innerText = livre < PESO_POR_APP ? "⚠️ MEMÓRIA QUASE CHEIA!" : "";
+                    }
+                    
+                    return livre; // Retorna para a função de instalar checar
+                };
+
+                setInterval(window.updateStorageSystem, 1000);
+            }
+        },
+
+        {
+            id: "musicApp", 
+            nome: "Music Ultra", 
+            icon: "🎵", 
+            desc: "Player Profissional",
+            html: `
+                <div id="musicApp" class="window" style="width:340px; height:450px;">
+                    <div class="header">Acode Music Ultra <button onclick="toggleApp('musicApp')">X</button></div>
+                    <div class="content" style="background:#020617; display:flex; flex-direction:column; gap:8px; padding:12px; align-items:center;">
+                        
+                        <div style="display:flex; align-items:flex-end; gap:3px; height:40px; margin-bottom:5px;">
+                            <div class="bar" style="width:5px; background:#4ade80; height:20%;"></div>
+                            <div class="bar" style="width:5px; background:#4ade80; height:60%;"></div>
+                            <div class="bar" style="width:5px; background:#4ade80; height:90%;"></div>
+                            <div class="bar" style="width:5px; background:#4ade80; height:40%;"></div>
+                            <div class="bar" style="width:5px; background:#4ade80; height:75%;"></div>
+                        </div>
+
+                        <div style="text-align:center;">
+                            <b id="songTitle" style="font-size:14px; color:white;">Aguardando Seleção</b><br>
+                            <small id="songArtist" style="color:#3b82f6; font-size:10px;">Acode OS Media</small>
+                        </div>
+
+                        <audio id="mainAudio" style="display:none;"></audio>
+
+                        <input type="range" id="seekSlider" value="0" max="100" style="width:100%; cursor:pointer; accent-color:#4ade80;">
+
+                        <div style="display:flex; gap:15px; align-items:center; margin:5px 0;">
+                            <button class="action" style="width:40px; background:#1e293b;" onclick="changeTrack(-1)">⏮</button>
+                            <button id="playBtn" style="background:#4ade80; border:none; width:50px; height:50px; border-radius:50%; font-size:22px; cursor:pointer; color:#020617;" onclick="playPauseReal()">▶</button>
+                            <button class="action" style="width:40px; background:#1e293b;" onclick="changeTrack(1)">⏭</button>
+                        </div>
+
+                        <div style="display:flex; align-items:center; gap:8px; width:100%; padding:0 10px;">
+                            <span style="font-size:12px;">🔈</span>
+                            <input type="range" id="volSlider" value="100" max="100" style="flex:1; accent-color:#3b82f6;" oninput="setVolume(this.value)">
+                            <span style="font-size:10px;" id="volText">100%</span>
+                        </div>
+
+                        <div style="width:100%; flex:1; overflow-y:auto; background:#0f172a; border-radius:8px; padding:5px; border:1px solid #334155;">
+                            <div id="musicLibrary"></div>
+                        </div>
+
+                        <button class="action" style="background:transparent; border:1px solid #4ade80; color:#4ade80; font-size:10px; margin:0;" onclick="importFromSystem()">🔄 REESCANEAR DISCO (C:)</button>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-musicApp" class="icon" onclick="toggleApp('musicApp'); importFromSystem();">🎵<br><span>Music</span></div>`,
+            script: function() {
+                const audio = document.getElementById("mainAudio");
+                const seek = document.getElementById("seekSlider");
+                let currentIdx = 0;
+                
+                const playlist = [
+                    { name: "Lofi Hip Hop", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
+                    { name: "Synthwave Drive", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" },
+                    { name: "Epic Rock", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3" },
+                    { name: "Smooth Jazz", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3" },
+                    { name: "Techno Beat", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" },
+                    { name: "Acode Theme", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-16.mp3" },
+                    { name: "Piano Solo", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" },
+                    { name: "Electric Energy", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3" },
+                    { name: "Chill Out", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-15.mp3" },
+                    { name: "Vaporwave", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3" }
+                ];
+
+                window.importFromSystem = () => {
+                    const lib = document.getElementById("musicLibrary");
+                    const allFiles = JSON.parse(localStorage.getItem("acode_files")) || [];
+                    lib.innerHTML = "";
+                    playlist.forEach((track, i) => createTrackElement(track.name, track.url, "Nativo", i));
+                    allFiles.forEach(file => { if(file.data.includes("http")) createTrackElement(file.name, file.data, "Importado", -1); });
+                };
+
+                function createTrackElement(name, url, type, index) {
+                    const div = document.createElement("div");
+                    div.className = "track-item";
+                    div.style = "padding:8px; background:#1e293b; border-radius:5px; margin-bottom:4px; font-size:11px; cursor:pointer; display:flex; justify-content:space-between; border-left:3px solid " + (type === "Nativo" ? "#3b82f6" : "#4ade80");
+                    div.innerHTML = `<span>▶ ${name}</span><small style="color:#64748b">${type}</small>`;
+                    div.onclick = () => {
+                        if(index !== -1) currentIdx = index;
+                        audio.src = url;
+                        document.getElementById("songTitle").innerText = name;
+                        document.getElementById("songArtist").innerText = type;
+                        playPauseReal(true);
+                    };
+                    document.getElementById("musicLibrary").appendChild(div);
+                }
+
+                window.playPauseReal = (forcePlay = false) => {
+                    if(!audio.src) return alert("Escolha uma música!");
+                    const btn = document.getElementById("playBtn");
+                    if (audio.paused || forcePlay) {
+                        audio.play();
+                        btn.innerText = "⏸";
+                    } else {
+                        audio.pause();
+                        btn.innerText = "▶";
+                    }
+                };
+
+                window.setVolume = (v) => { audio.volume = v / 100; document.getElementById("volText").innerText = v + "%"; };
+                window.changeTrack = (dir) => {
+                    currentIdx = (currentIdx + dir + playlist.length) % playlist.length;
+                    const next = playlist[currentIdx];
+                    audio.src = next.url;
+                    document.getElementById("songTitle").innerText = next.name;
+                    playPauseReal(true);
+                };
+
+                audio.ontimeupdate = () => { if(!audio.duration) return; seek.value = (audio.currentTime / audio.duration) * 100; };
+                seek.oninput = () => { audio.currentTime = (seek.value / 100) * audio.duration; };
+
+                // Efeito visual das barras quando toca
+                setInterval(() => {
+                    if(!audio.paused) {
+                        document.querySelectorAll('.bar').forEach(b => b.style.height = Math.random() * 100 + "%");
+                    }
+                }, 150);
+            }
+        },
+
+        {
+            id: "settingsApp", 
+            nome: "Configurações", 
+            icon: "⚙️", 
+            desc: "Personalize seu OS",
+            html: `
+                <div id="settingsApp" class="window">
+                    <div class="header">Configurações <button onclick="toggleApp('settingsApp')">X</button></div>
+                    <div class="content" style="background:#1e293b; display:flex; flex-direction:column; gap:15px; padding:15px;">
+                        
+                        <div style="border-bottom:1px solid #334155; padding-bottom:10px;">
+                            <p style="font-size:12px; color:#94a3b8; margin-bottom:10px;">PLANO DE FUNDO</p>
+                            <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;">
+                                <div onclick="setWall('#0f172a')" style="height:40px; background:#0f172a; border-radius:5px; border:2px solid white; cursor:pointer;"></div>
+                                <div onclick="setWall('linear-gradient(45deg, #1e1b4b, #312e81)')" style="height:40px; background:linear-gradient(45deg, #1e1b4b, #312e81); border-radius:5px; cursor:pointer;"></div>
+                                <div onclick="setWall('linear-gradient(135deg, #020617, #1e293b)')" style="height:40px; background:linear-gradient(135deg, #020617, #1e293b); border-radius:5px; cursor:pointer;"></div>
+                                <div onclick="setWall('#1e3a8a')" style="height:40px; background:#1e3a8a; border-radius:5px; cursor:pointer;"></div>
+                                <div onclick="setWall('#312e81')" style="height:40px; background:#312e81; border-radius:5px; cursor:pointer;"></div>
+                                <div onclick="setWall('black')" style="height:40px; background:black; border-radius:5px; cursor:pointer;"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <p style="font-size:12px; color:#94a3b8; margin-bottom:5px;">INFORMAÇÕES DO DISPOSITIVO</p>
+                            <div style="background:#0f172a; padding:10px; border-radius:8px; font-size:11px; line-height:1.8;">
+                                🖥️ Sistema: <span style="color:#4ade80;">Acode OS Ultimate</span><br>
+                                💾 Disco: <span style="color:#3b82f6;">64 GB SSD</span><br>
+                                📡 Conexão: <span style="color:#4ade80;">Online</span><br>
+                                🔑 Usuário: <span style="color:#f59e0b;">Administrador</span>
+                            </div>
+                        </div>
+
+                        <button class="action" style="background:#ef4444; margin-top:auto;" onclick="clearSystemMemory()">REFORMATAR SISTEMA</button>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-settingsApp" class="icon" onclick="toggleApp('settingsApp')">⚙️<br><span>Configs</span></div>`,
+            script: function() {
+                window.setWall = (color) => {
+                    document.body.style.background = color;
+                    // Salva a preferência se quiser que persista
+                    localStorage.setItem("acode_wallpaper", color);
+                };
+
+                // Carrega o wallpaper salvo ao abrir
+                const savedWall = localStorage.getItem("acode_wallpaper");
+                if(savedWall) document.body.style.background = savedWall;
+            }
+        },
+
+        {
+            id: "galleryApp", 
+            nome: "Galeria", 
+            icon: "🖼️", 
+            desc: "Gerenciador de Mídias",
+            html: `
+                <div id="galleryApp" class="window" style="height:450px;">
+                    <div class="header">Galeria Pro <button onclick="toggleApp('galleryApp')">X</button></div>
+                    <div class="content" style="background:#020617; display:flex; flex-direction:column; gap:10px; padding:12px;">
+                        
+                        <div style="background:#1e293b; padding:10px; border-radius:8px; border:1px solid #334155;">
+                            <p style="font-size:10px; color:#94a3b8; margin-bottom:5px;">IMPORTAR VIA URL (HTTP/BASE64):</p>
+                            <input id="imgImportUrl" placeholder="Cole o link da imagem aqui..." style="font-size:10px; margin-bottom:5px; background:#0f172a;">
+                            <button class="action" style="margin:0; font-size:11px; background:#4ade80; color:#020617;" onclick="importToGallery()">📥 SALVAR NA GALERIA</button>
+                        </div>
+
+                        <div id="galleryGrid" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; flex:1; overflow-y:auto; padding:5px;">
+                            </div>
+
+                        <div style="display:flex; gap:5px;">
+                            <button class="action" style="background:#3b82f6; margin:0; font-size:10px; flex:1;" onclick="syncGallery()">🔄 ATUALIZAR DISCO (C:)</button>
+                            <button class="action" style="background:transparent; border:1px solid #ef4444; color:#ef4444; margin:0; font-size:10px; flex:0.5;" onclick="clearGallery()">LIMPAR</button>
+                        </div>
+
+                        <div id="photoPreview" style="display:none; position:absolute; top:40px; left:0; width:100%; height:calc(100% - 40px); background:rgba(0,0,0,0.95); z-index:1000; flex-direction:column; align-items:center; justify-content:center; backdrop-filter:blur(5px);">
+                            <img id="fullImg" style="max-width:90%; max-height:70%; border-radius:8px; border:2px solid #334155;">
+                            <button class="action" style="width:120px; margin-top:20px; background:#ef4444;" onclick="document.getElementById('photoPreview').style.display='none'">FECHAR</button>
+                        </div>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-galleryApp" class="icon" onclick="toggleApp('galleryApp'); syncGallery();">🖼️<br><span>Galeria</span></div>`,
+            script: function() {
+                // 1. IMPORTAR LINK DIRETO PARA O SISTEMA
+                window.importToGallery = () => {
+                    const url = document.getElementById("imgImportUrl").value;
+                    if(!url || !url.startsWith("http") && !url.startsWith("data:image")) {
+                        return alert("Insira um link de imagem válido!");
+                    }
+                    
+                    // Usa a função global do seu sistema para salvar no "Disco"
+                    saveToSystem("Foto_" + Date.now(), "foto", url);
+                    document.getElementById("imgImportUrl").value = "";
+                    syncGallery();
+                    alert("Imagem exportada para o sistema com sucesso!");
+                };
+
+                // 2. SINCRONIZAR COM O QUE EXISTE NO DISCO
+                window.syncGallery = () => {
+                    const grid = document.getElementById("galleryGrid");
+                    const allFiles = JSON.parse(localStorage.getItem("acode_files")) || [];
+                    grid.innerHTML = "";
+
+                    allFiles.forEach(file => {
+                        // Detecta se o arquivo é imagem (seja do Paint ou link importado)
+                        if(file.type === 'foto' || file.data.includes("data:image") || file.data.includes(".jpg") || file.data.includes(".png") || file.data.includes(".webp")) {
+                            const imgDiv = document.createElement("div");
+                            imgDiv.style = "aspect-ratio:1/1; background:#0f172a; border-radius:5px; overflow:hidden; border:1px solid #334155; cursor:pointer;";
+                            imgDiv.innerHTML = `<img src="${file.data}" style="width:100%; height:100%; object-fit:cover;">`;
+                            imgDiv.onclick = () => {
+                                document.getElementById("fullImg").src = file.data;
+                                document.getElementById("photoPreview").style.display = "flex";
+                            };
+                            grid.appendChild(imgDiv);
+                        }
+                    });
+
+                    if(grid.innerHTML === "") grid.innerHTML = "<p style='color:#64748b; font-size:9px; grid-column:span 3; text-align:center;'>Nenhuma mídia no disco.</p>";
+                };
+
+                window.clearGallery = () => { if(confirm("Apagar todas as fotos do sistema?")) { localStorage.removeItem("acode_files"); syncGallery(); } };
+            }
+        },
+
+        {
+            id: "cameraApp", 
+            nome: "Câmera", 
+            icon: "📷", 
+            desc: "Simulador de Captura",
+            html: `
+                <div id="cameraApp" class="window" style="width:340px; height:450px;">
+                    <div class="header">Acode Cam Pro <button onclick="toggleApp('cameraApp')">X</button></div>
+                    <div class="content" style="background:#020617; display:flex; flex-direction:column; gap:10px; padding:12px; align-items:center;">
+                        
+                        <div style="position:relative; width:100%; flex:1; background:#000; border-radius:10px; overflow:hidden; border:2px solid #1e293b; display:flex; align-items:center; justify-content:center;">
+                            <img id="cameraView" src="https://picsum.photos/400/300" style="width:100%; height:100%; object-fit:cover; transition: opacity 0.3s;">
+                            
+                            <div style="position:absolute; top:10px; left:10px; font-size:10px; color:#4ade80; font-family:monospace;">[REC] 00:00:00</div>
+                            <div style="position:absolute; top:10px; right:10px; font-size:10px; color:#4ade80;">🔋 100%</div>
+                            <div style="position:absolute; bottom:10px; left:10px; font-size:10px; color:#4ade80;">ISO 400 | f/2.8 | 1/160s</div>
+                            <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:30px; height:30px; border:2px solid #4ade80; border-radius:50%; box-shadow: 0 0 10px #22c55e;"></div>
+                        </div>
+
+                        <div style="display:flex; gap:15px; align-items:center; width:100%; justify-content:center;">
+                            <button class="action" style="width:50px; background:#1e293b; font-size:16px;" onclick="refreshCamera()">🔄</button>
+                            <button id="snapBtn" style="background:#ef4444; border:none; width:65px; height:65px; border-radius:50%; font-size:30px; cursor:pointer; color:#020617; box-shadow: 0 5px 15px rgba(239, 68, 68, 0.4);" onclick="takePhoto()">📸</button>
+                            <button class="action" style="width:50px; background:#1e293b; font-size:16px;" onclick="toggleApp('galleryApp'); syncGallery();">🖼️</button>
+                        </div>
+
+                        <div id="camStatus" style="font-size:11px; color:#94a3b8; text-align:center;">Mire no alvo e tire a foto.</div>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-cameraApp" class="icon" onclick="toggleApp('cameraApp'); refreshCamera();">📷<br><span>Câmera</span></div>`,
+            script: function() {
+                // 1. ATUALIZAR O VISOR (MUDAR CENÁRIO)
+                window.refreshCamera = () => {
+                    const view = document.getElementById("cameraView");
+                    view.style.opacity = "0"; // Efeito de piscar
+                    // Gera uma URL única para forçar o recarregamento da imagem
+                    const newUrl = "https://picsum.photos/400/300?seed=" + Date.now();
+                    view.src = newUrl;
+                    view.onload = () => { view.style.opacity = "1"; };
+                    document.getElementById("camStatus").innerText = "Cenário atualizado!";
+                };
+
+                // 2. TIRAR A FOTO (SALVAR NO SISTEMA)
+                window.takePhoto = () => {
+                    const view = document.getElementById("cameraView");
+                    const status = document.getElementById("camStatus");
+                    const url = view.src;
+                    
+                    if(!url.startsWith("http")) return alert("Erro ao capturar a imagem!");
+                    
+                    // Simula o som de obturador (opcional)
+                    const audio = new Audio("https://www.soundjay.com/camera/camera-shutter-click-01.mp3");
+                    audio.play();
+
+                    // Salva a imagem no "Disco C:" usando a função global do sistema
+                    const fileName = "Foto_" + new Date().toLocaleTimeString().replace(/:/g, '');
+                    saveToSystem(fileName, "foto", url);
+
+                    // Efeito visual de flash (simulado piscando a tela)
+                    const camApp = document.getElementById("cameraApp");
+                    camApp.style.boxShadow = "0 0 50px #fff";
+                    setTimeout(() => { camApp.style.boxShadow = "0 15px 35px rgba(0,0,0,0.6)"; }, 150);
+
+                    // Atualiza o status e os outros apps
+                    status.innerText = `Foto "${fileName}" salva na Galeria!`;
+                    if(document.getElementById('galleryApp')) syncGallery(); // Sincroniza se a galeria estiver aberta
+                    if(document.getElementById('sysMonitorApp')) updateStorage(); // Atualiza o disco se o monitor estiver aberto
+                    
+                    // Mostra o botão de abrir galeria em destaque
+                    status.style.color = "#4ade80";
+                    setTimeout(() => { status.style.color = "#94a3b8"; }, 2000);
+                };
+            }
+        },
+
+        {
+            id: "taskManager", 
+            nome: "Gerenciador", 
+            icon: "📊", 
+            desc: "Monitor de Processos",
+            html: `
+                <div id="taskManager" class="window" style="width:320px; height:400px;">
+                    <div class="header">Gerenciador de Tarefas <button onclick="toggleApp('taskManager')">X</button></div>
+                    <div class="content" style="background:#0f172a; display:flex; flex-direction:column; gap:10px; padding:12px;">
+                        
+                        <div style="display:flex; justify-content:space-between; align-items:center; background:#1e293b; padding:10px; border-radius:8px;">
+                            <div>
+                                <div style="font-size:10px; color:#94a3b8;">CPU</div>
+                                <div id="cpuUsage" style="font-weight:bold; color:#4ade80;">2%</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:10px; color:#94a3b8;">MEMÓRIA (Disco C:)</div>
+                                <div id="memUsage" style="font-weight:bold; color:#3b82f6;">0 GB</div>
+                            </div>
+                        </div>
+
+                        <div style="flex:1; overflow-y:auto; background:#020617; border-radius:8px; border:1px solid #334155;">
+                            <table style="width:100%; font-size:11px; color:white; border-collapse: collapse;">
+                                <thead style="background:#1e293b; position:sticky; top:0;">
+                                    <tr>
+                                        <th style="padding:8px; text-align:left;">App</th>
+                                        <th style="padding:8px; text-align:right;">Peso</th>
+                                        <th style="padding:8px; text-align:center;">Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="processList">
+                                    </tbody>
+                            </table>
+                        </div>
+
+                        <button class="action" style="background:#ef4444; margin:0;" onclick="killAllProcesses()">FINALIZAR TUDO</button>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-taskManager" class="icon" onclick="toggleApp('taskManager'); refreshTasks();">📊<br><span>Tarefas</span></div>`,
+            script: function() {
+                // Atualiza a lista de apps instalados e seus pesos
+                window.refreshTasks = () => {
+                    const tbody = document.getElementById("processList");
+                    const icons = document.querySelectorAll('#desktop .icon span');
+                    const cpu = document.getElementById("cpuUsage");
+                    const mem = document.getElementById("memUsage");
+                    
+                    tbody.innerHTML = "";
+                    let totalMem = 0;
+
+                    icons.forEach(span => {
+                        const name = span.innerText;
+                        const weight = appWeights[name] || 0.5;
+                        totalMem += weight;
+
+                        const tr = document.createElement("tr");
+                        tr.style.borderBottom = "1px solid #1e293b";
+                        tr.innerHTML = `
+                            <td style="padding:8px;">${name}</td>
+                            <td style="padding:8px; text-align:right; color:#3b82f6;">${weight.toFixed(1)}GB</td>
+                            <td style="padding:8px; text-align:center;">
+                                <button onclick="killProcess('${name}')" style="background:none; border:none; color:#ef4444; cursor:pointer;">✕</button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+
+                    mem.innerText = totalMem.toFixed(1) + " GB";
+                    cpu.innerText = Math.floor(Math.random() * 15 + 1) + "%";
+                };
+
+                window.killProcess = (name) => {
+                    alert("O processo '" + name + "' é vital para o sistema. Para remover, use a Loja!");
+                };
+
+                window.killAllProcesses = () => {
+                    const windows = document.querySelectorAll('.window');
+                    windows.forEach(win => { if(win.id !== 'taskManager') win.style.display = 'none'; });
+                    refreshTasks();
+                };
+
+                // Atualiza a CPU fingindo processamento real
+                setInterval(() => {
+                    const cpu = document.getElementById("cpuUsage");
+                    if(cpu) cpu.innerText = Math.floor(Math.random() * 20 + 1) + "%";
+                }, 3000);
+            }
+        },
+
+        {
+            id: "controlCenter", 
+            nome: "Painel", 
+            icon: "🔔", 
+            desc: "Status e Notificações",
+            html: `
+                <div id="controlCenter" class="window" style="width:300px; height:400px; right: 20px; left: auto;">
+                    <div class="header">Central de Controle <button onclick="toggleApp('controlCenter')">X</button></div>
+                    <div class="content" style="background:#020617; display:flex; flex-direction:column; gap:15px; padding:15px;">
+                        
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                            <div style="background:#1e293b; padding:10px; border-radius:8px; text-align:center;">
+                                <div style="font-size:20px;">🔋</div>
+                                <div id="sysBattery" style="font-size:12px; font-weight:bold; color:#4ade80;">--%</div>
+                                <div style="font-size:8px; color:#94a3b8;">BATERIA</div>
+                            </div>
+                            <div style="background:#1e293b; padding:10px; border-radius:8px; text-align:center;">
+                                <div style="font-size:20px;">📶</div>
+                                <div style="font-size:12px; font-weight:bold; color:#3b82f6;">Conectado</div>
+                                <div style="font-size:8px; color:#94a3b8;">REDE</div>
+                            </div>
+                        </div>
+
+                        <div style="text-align:center; padding:10px; background:linear-gradient(45deg, #1e293b, #0f172a); border-radius:8px; border:1px solid #334155;">
+                            <div id="bigClock" style="font-size:32px; font-weight:bold; letter-spacing:2px;">00:00:00</div>
+                            <div id="sysDate" style="font-size:10px; color:#94a3b8; text-transform:uppercase;">--/--/----</div>
+                        </div>
+
+                        <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
+                            <p style="font-size:10px; color:#94a3b8; font-weight:bold;">NOTIFICAÇÕES RECENTES</p>
+                            <div id="notifList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:5px;">
+                                <div style="background:#1e293b; padding:8px; border-radius:5px; font-size:10px; border-left:3px solid #3b82f6;">
+                                    <b>Sistema:</b> Bem-vindo ao Acode OS v3.0!
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="action" style="background:#334155; font-size:10px; margin:0;" onclick="clearNotifs()">LIMPAR TUDO</button>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-controlCenter" class="icon" onclick="toggleApp('controlCenter'); updateSysStats();">🔔<br><span>Painel</span></div>`,
+            script: function() {
+                // Função para atualizar bateria e hora real
+                window.updateSysStats = async () => {
+                    // Relógio e Data
+                    const now = new Date();
+                    document.getElementById("bigClock").innerText = now.toLocaleTimeString();
+                    document.getElementById("sysDate").innerText = now.toLocaleDateString();
+
+                    // Bateria Real do Celular/PC
+                    if (navigator.getBattery) {
+                        const battery = await navigator.getBattery();
+                        const updateBatt = () => {
+                            document.getElementById("sysBattery").innerText = Math.round(battery.level * 100) + "%";
+                        };
+                        updateBatt();
+                        battery.addEventListener('levelchange', updateBatt);
+                    }
+                };
+
+                // Função Global para enviar notificações de outros apps
+                window.pushNotif = (title, msg) => {
+                    const list = document.getElementById("notifList");
+                    if(!list) return;
+                    const div = document.createElement("div");
+                    div.style = "background:#1e293b; padding:8px; border-radius:5px; font-size:10px; border-left:3px solid #4ade80; animation: slideIn 0.3s ease;";
+                    div.innerHTML = `<b>${title}:</b> ${msg}`;
+                    list.prepend(div);
+                };
+
+                window.clearNotifs = () => {
+                    document.getElementById("notifList").innerHTML = "<p style='color:#64748b; font-size:9px; text-align:center;'>Nenhuma notificação</p>";
+                };
+
+                // Atualiza o relógio a cada segundo
+                setInterval(updateSysStats, 1000);
+
+                // Estilos de animação
+                const s = document.createElement('style');
+                s.innerHTML = "@keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }";
+                document.head.appendChild(s);
+            }
+        },
+
+        {
+            id: "snakeGame", 
+            nome: "Snake OS", 
+            icon: "🐍", 
+            desc: "O Clássico da Cobrinha",
+            html: `
+                <div id="snakeGame" class="window" style="width:320px; height:420px;">
+                    <div class="header">Snake OS <button onclick="toggleApp('snakeGame'); stopSnake();">X</button></div>
+                    <div class="content" style="background:#000; display:flex; flex-direction:column; align-items:center; padding:10px; gap:10px;">
+                        <div style="display:flex; justify-content:space-between; width:100%; color:#4ade80; font-family:monospace; font-size:14px;">
+                            <span>Pontos: <b id="score">0</b></span>
+                            <span>Recorde: <b id="high">0</b></span>
+                        </div>
+                        <canvas id="snakeCanvas" width="280" height="280" style="background:#0f172a; border:2px solid #1e293b;"></canvas>
+                        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:5px;">
+                            <button class="action" style="grid-column: 2; margin:0;" onclick="changeDir('UP')">▲</button>
+                            <button class="action" style="grid-column: 1; margin:0;" onclick="changeDir('LEFT')">◀</button>
+                            <button class="action" style="grid-column: 2; margin:0; background:#4ade80; color:#000;" onclick="startSnake()">START</button>
+                            <button class="action" style="grid-column: 3; margin:0;" onclick="changeDir('RIGHT')">▶</button>
+                            <button class="action" style="grid-column: 2; margin:0;" onclick="changeDir('DOWN')">▼</button>
+                        </div>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-snakeGame" class="icon" onclick="toggleApp('snakeGame')">🐍<br><span>Snake</span></div>`,
+            script: function() {
+                const canvas = document.getElementById("snakeCanvas");
+                const ctx = canvas.getContext("2d");
+                const box = 20;
+                let snake, food, score, d, game;
+
+                window.startSnake = () => {
+                    clearInterval(game);
+                    snake = [{x: 9 * box, y: 10 * box}];
+                    food = { x: Math.floor(Math.random()*14)*box, y: Math.floor(Math.random()*14)*box };
+                    score = 0; d = "RIGHT";
+                    document.getElementById("score").innerText = score;
+                    game = setInterval(draw, 150);
+                };
+
+                window.stopSnake = () => clearInterval(game);
+                window.changeDir = (newD) => { if(newD=="UP" && d!="DOWN") d="UP"; if(newD=="DOWN" && d!="UP") d="DOWN"; if(newD=="LEFT" && d!="RIGHT") d="LEFT"; if(newD=="RIGHT" && d!="LEFT") d="RIGHT"; };
+
+                function draw() {
+                    ctx.fillStyle = "#0f172a"; ctx.fillRect(0,0,280,280);
+                    for(let i=0; i<snake.length; i++) {
+                        ctx.fillStyle = (i==0) ? "#4ade80" : "#22c55e";
+                        ctx.fillRect(snake[i].x, snake[i].y, box, box);
+                    }
+                    ctx.fillStyle = "#ef4444"; ctx.fillRect(food.x, food.y, box, box);
+                    let snakeX = snake[0].x; let snakeY = snake[0].y;
+                    if(d == "LEFT") snakeX -= box; if(d == "UP") snakeY -= box; if(d == "RIGHT") snakeX += box; if(d == "DOWN") snakeY += box;
+                    if(snakeX == food.x && snakeY == food.y) {
+                        score++; document.getElementById("score").innerText = score;
+                        food = { x: Math.floor(Math.random()*14)*box, y: Math.floor(Math.random()*14)*box };
+                    } else { snake.pop(); }
+                    let newHead = {x: snakeX, y: snakeY};
+                    if(snakeX < 0 || snakeX >= 280 || snakeY < 0 || snakeY >= 280 || collision(newHead, snake)) {
+                        clearInterval(game); alert("Game Over! Score: " + score);
+                    }
+                    snake.unshift(newHead);
+                }
+                function collision(head, array) { for(let i=0; i<array.length; i++) if(head.x == array[i].x && head.y == array[i].y) return true; return false; }
+            }
+        },
+
+        {
+            id: "socialApp", 
+            nome: "Connect", 
+            icon: "🌐", 
+            desc: "Rede Social Acode",
+            html: `
+                <div id="socialApp" class="window" style="width:350px; height:500px;">
+                    <div class="header">Acode Connect <button onclick="toggleApp('socialApp')">X</button></div>
+                    <div class="content" style="background:#f8fafc; display:flex; flex-direction:column; padding:0; color:#1e293b;">
+                        
+                        <div style="background:#fff; padding:12px; border-bottom:8px solid #f1f5f9;">
+                            <textarea id="postInput" placeholder="O que está acontecendo no seu OS?" 
+                                      style="width:100%; border:none; resize:none; font-family:sans-serif; font-size:14px; outline:none; min-height:60px;"></textarea>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+                                <button onclick="attachLastPhoto()" style="background:#f1f5f9; border:none; border-radius:15px; padding:5px 12px; font-size:11px; cursor:pointer; color:#64748b;">🖼️ Anexar Última Foto</button>
+                                <button class="action" style="margin:0; background:#3b82f6; padding:6px 16px; border-radius:20px;" onclick="publishPost()">Postar</button>
+                            </div>
+                            <div id="attachmentPreview" style="margin-top:10px; display:none;">
+                                <img id="previewImg" style="width:50px; height:50px; border-radius:8px; object-fit:cover; border:2px solid #3b82f6;">
+                            </div>
+                        </div>
+
+                        <div id="socialFeed" style="flex:1; overflow-y:auto; display:flex; flex-direction:column;">
+                            </div>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-socialApp" class="icon" onclick="toggleApp('socialApp'); loadFeed();">🌐<br><span>Connect</span></div>`,
+            script: function() {
+                let attachedImg = null;
+
+                window.loadFeed = () => {
+                    const feed = document.getElementById("socialFeed");
+                    feed.innerHTML = "";
+                    
+                    // Posts "Fake" da Comunidade para dar vida
+                    const demoPosts = [
+                        { user: "DevMaster", text: "Acabei de atualizar meu Acode OS para a v3.0! O terminal está incrível.", img: null, time: "2h" },
+                        { user: "Designer_SC", text: "Olha esse desenho que fiz no Paint Pro!", img: "https://picsum.photos/300/200?seed=1", time: "5h" }
+                    ];
+
+                    // Carrega posts salvos do LocalStorage
+                    const myPosts = JSON.parse(localStorage.getItem("acode_social_posts")) || [];
+                    const allPosts = [...myPosts, ...demoPosts];
+
+                    allPosts.forEach(p => {
+                        const postDiv = document.createElement("div");
+                        postDiv.style = "background:#fff; padding:15px; border-bottom:1px solid #f1f5f9;";
+                        postDiv.innerHTML = `
+                            <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+                                <div style="width:35px; height:35px; background:#3b82f6; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:12px;">${p.user[0]}</div>
+                                <div>
+                                    <div style="font-size:13px; font-weight:bold;">${p.user}</div>
+                                    <div style="font-size:10px; color:#94a3b8;">há ${p.time || 'agora'}</div>
+                                </div>
+                            </div>
+                            <div style="font-size:13px; margin-bottom:10px; line-height:1.4;">${p.text}</div>
+                            ${p.img ? `<img src="${p.img}" style="width:100%; border-radius:12px; border:1px solid #e2e8f0;">` : ""}
+                        `;
+                        feed.appendChild(postDiv);
+                    });
+                };
+
+                window.attachLastPhoto = () => {
+                    const files = JSON.parse(localStorage.getItem("acode_files")) || [];
+                    const lastPhoto = files.reverse().find(f => f.type === 'foto');
+                    if(lastPhoto) {
+                        attachedImg = lastPhoto.data;
+                        document.getElementById("previewImg").src = attachedImg;
+                        document.getElementById("attachmentPreview").style.display = "block";
+                    } else {
+                        alert("Nenhuma foto encontrada no sistema!");
+                    }
+                };
+
+                window.publishPost = () => {
+                    const text = document.getElementById("postInput").value;
+                    if(!text && !attachedImg) return;
+
+                    const newPost = {
+                        user: "Você (Admin)",
+                        text: text,
+                        img: attachedImg,
+                        time: "agora"
+                    };
+
+                    const posts = JSON.parse(localStorage.getItem("acode_social_posts")) || [];
+                    posts.unshift(newPost);
+                    localStorage.setItem("acode_social_posts", JSON.stringify(posts));
+
+                    // Limpa tudo
+                    document.getElementById("postInput").value = "";
+                    document.getElementById("attachmentPreview").style.display = "none";
+                    attachedImg = null;
+                    loadFeed();
+                    
+                    if(window.pushNotif) pushNotif("Connect", "Sua postagem foi publicada!");
+                };
+            }
+        },
+
+        {
+            id: "whatsappApp", 
+            nome: "Acode Chat", 
+            icon: "💬", 
+            desc: "Mensagens e Grupos",
+            html: `
+                <div id="whatsappApp" class="window" style="width:360px; height:500px; display:flex; flex-direction:column;">
+                    <div class="header" style="background:#075e54;">Acode Chat <button onclick="toggleApp('whatsappApp')">X</button></div>
+                    
+                    <div id="chatList" style="flex:1; background:#fff; overflow-y:auto;">
+                        <div onclick="openConversation('Dev Amigo', '🧑‍💻')" style="display:flex; align-items:center; padding:15px; border-bottom:1px solid #f2f2f2; cursor:pointer;">
+                            <div style="width:45px; height:45px; background:#128c7e; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-size:20px;">🧑‍💻</div>
+                            <div style="margin-left:15px; flex:1;">
+                                <div style="font-weight:bold; color:#000;">Dev Amigo</div>
+                                <div style="font-size:12px; color:#666;">Viste o novo terminal?</div>
+                            </div>
+                        </div>
+                        <div onclick="openConversation('Grupo de Testes', '🚀')" style="display:flex; align-items:center; padding:15px; border-bottom:1px solid #f2f2f2; cursor:pointer;">
+                            <div style="width:45px; height:45px; background:#34b7f1; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-size:20px;">🚀</div>
+                            <div style="margin-left:15px; flex:1;">
+                                <div style="font-weight:bold; color:#000;">Grupo de Testes</div>
+                                <div style="font-size:12px; color:#666;">APK gerado com sucesso!</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="chatRoom" style="display:none; flex:1; flex-direction:column; background:#e5ddd5;">
+                        <div style="background:#075e54; padding:10px; color:white; display:flex; align-items:center;">
+                            <button onclick="backToContacts()" style="background:none; border:none; color:white; font-size:18px; cursor:pointer; margin-right:10px;">←</button>
+                            <span id="chatTitle" style="font-weight:bold;">Nome</span>
+                        </div>
+                        <div id="messageBox" style="flex:1; padding:15px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
+                            </div>
+                        <div style="background:#f0f0f0; padding:10px; display:flex; gap:10px; align-items:center;">
+                            <button onclick="attachFromGallery()" style="background:none; border:none; font-size:20px; cursor:pointer;">📎</button>
+                            <input id="chatInput" placeholder="Mensagem" style="flex:1; border-radius:20px; border:none; padding:8px 15px; outline:none;">
+                            <button onclick="sendMessage()" style="background:#128c7e; border:none; color:white; width:40px; height:40px; border-radius:50%; cursor:pointer;">➤</button>
+                        </div>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-whatsappApp" class="icon" onclick="toggleApp('whatsappApp')">💬<br><span>Chat</span></div>`,
+            script: function() {
+                let currentContact = "";
+
+                window.openConversation = (name, icon) => {
+                    currentContact = name;
+                    document.getElementById("chatList").style.display = "none";
+                    document.getElementById("chatRoom").style.display = "flex";
+                    document.getElementById("chatTitle").innerText = name;
+                    loadMessages(name);
+                };
+
+                window.backToContacts = () => {
+                    document.getElementById("chatList").style.display = "block";
+                    document.getElementById("chatRoom").style.display = "none";
+                };
+
+                window.sendMessage = () => {
+                    const input = document.getElementById("chatInput");
+                    const text = input.value;
+                    if(!text) return;
+
+                    addMessage("me", text);
+                    input.value = "";
+
+                    // Resposta automática simulada
+                    setTimeout(() => {
+                        const respostas = ["Incrível!", "Boa!", "Estou a testar o APK agora.", "Vou ver isso já."];
+                        addMessage("other", respostas[Math.floor(Math.random() * respostas.length)]);
+                        if(window.pushNotif) pushNotif(currentContact, "Nova mensagem recebida");
+                    }, 1500);
+                };
+
+                function addMessage(type, content, isImg = false) {
+                    const box = document.getElementById("messageBox");
+                    const msg = document.createElement("div");
+                    const styleMe = "align-self: flex-end; background: #dcf8c6; padding: 8px 12px; border-radius: 8px; max-width: 80%; font-size: 13px; box-shadow: 0 1px 1px rgba(0,0,0,0.1);";
+                    const styleOther = "align-self: flex-start; background: #fff; padding: 8px 12px; border-radius: 8px; max-width: 80%; font-size: 13px; box-shadow: 0 1px 1px rgba(0,0,0,0.1);";
+                    
+                    msg.style = type === "me" ? styleMe : styleOther;
+                    
+                    if(isImg) {
+                        msg.innerHTML = `<img src="${content}" style="max-width:200px; border-radius:5px;">`;
+                    } else {
+                        msg.innerText = content;
+                    }
+                    
+                    box.appendChild(msg);
+                    box.scrollTop = box.scrollHeight;
+                }
+
+                window.attachFromGallery = () => {
+                    const files = JSON.parse(localStorage.getItem("acode_files")) || [];
+                    const photos = files.filter(f => f.type === 'foto');
+                    if(photos.length > 0) {
+                        const lastPhoto = photos[photos.length - 1].data;
+                        addMessage("me", lastPhoto, true);
+                    } else {
+                        alert("Tira uma foto com a Câmera primeiro!");
+                    }
+                };
+
+                function loadMessages(name) {
+                    const box = document.getElementById("messageBox");
+                    box.innerHTML = `<div style="text-align:center; font-size:10px; color:#999; margin-bottom:10px;">Mensagens encriptadas pelo Acode OS</div>`;
+                    if(name === "Dev Amigo") {
+                        addMessage("other", "Ei! O sistema está a ficar brutal.");
+                    }
+                }
+            }
+        },
+
+        {
+            id: "nexusAiApp",
+            nome: "Nexus AI",
+            icon: "🧠",
+            desc: "Gerador de Histórias",
+            html: `
+                <div id="nexusAiApp" class="window">
+                    <div class="header">Nexus AI - Criador <button onclick="toggleApp('nexusAiApp')">X</button></div>
+                    <div class="content" style="background: #020617; display:flex; flex-direction:column; gap:12px; padding:15px;">
+                        
+                        <div id="aiStatus" style="font-size:10px; color:#4ade80; text-align:center; font-family:monospace;">● SISTEMA PRONTO</div>
+                        
+                        <input id="aiPrompt" placeholder="Ex: Um guerreiro no deserto..." 
+                               style="background:#1e293b; border:1px solid #3b82f6; color:white; padding:12px; border-radius:8px; font-size:13px; outline:none;">
+                        
+                        <div style="display:flex; gap:8px;">
+                            <button class="action" onclick="generateAI('personagem')" style="background:#3b82f6; font-size:11px;">👤 CRIAR PERSONAGEM</button>
+                            <button class="action" onclick="generateAI('historia')" style="background:#8b5cf6; font-size:11px;">📖 CRIAR HISTÓRIA</button>
+                        </div>
+
+                        <div id="aiResponse" style="flex:1; overflow-y:auto; background:rgba(30,41,59,0.5); border-radius:8px; padding:15px; border:1px solid #334155; display:none;">
+                            <div id="aiText" style="font-size:13px; color:#cbd5e1; line-height:1.6; white-space:pre-wrap;"></div>
+                            <button class="action" onclick="saveAiResult()" style="margin-top:15px; background:transparent; border:1px solid #4ade80; color:#4ade80; font-size:10px;">💾 SALVAR NOS ARQUIVOS</button>
+                        </div>
+
+                        <div id="aiLoader" style="display:none; text-align:center; padding:20px;">
+                            <div style="width:30px; height:30px; border:3px solid #3b82f6; border-top-color:transparent; border-radius:50%; animation: spin 1s linear infinite; margin:0 auto;"></div>
+                            <p style="font-size:11px; color:#94a3b8; margin-top:10px;">Processando neurônios...</p>
+                        </div>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-nexusAiApp" class="icon" onclick="toggleApp('nexusAiApp')">🧠<br><span>Nexus AI</span></div>`,
+            script: function() {
+                window.generateAI = (tipo) => {
+                    const prompt = document.getElementById("aiPrompt").value;
+                    const loader = document.getElementById("aiLoader");
+                    const response = document.getElementById("aiResponse");
+                    const text = document.getElementById("aiText");
+                    const status = document.getElementById("aiStatus");
+
+                    if(!prompt) return alert("Digite um tema para a IA!");
+
+                    // Visual de carregamento
+                    status.innerText = "○ PROCESSANDO...";
+                    status.style.color = "#f59e0b";
+                    response.style.display = "none";
+                    loader.style.display = "block";
+
+                    setTimeout(() => {
+                        loader.style.display = "none";
+                        response.style.display = "block";
+                        status.innerText = "● RESPOSTA GERADA";
+                        status.style.color = "#4ade80";
+
+                        if(tipo === 'personagem') {
+                            text.innerText = `--- FICHA DE PERSONAGEM --- \nNome: ${prompt.split(' ')[0]}thos\nClasse: Especialista em ${prompt}\nHabilidade: Manipulação Quântica\nFraqueza: Curiosidade extrema\nOrigem: Setor ${Math.floor(Math.random()*999)}`;
+                        } else {
+                            text.innerText = `--- BREVE CONTO --- \nTudo começou quando o mundo de ${prompt} foi invadido pelo silêncio. As estrelas pararam de brilhar e apenas uma criança sabia o segredo para religar o universo...`;
+                        }
+                    }, 2000);
+                };
+
+                window.saveAiResult = () => {
+                    const content = document.getElementById("aiText").innerText;
+                    if(!content) return;
+                    // Usa a função global do sistema para salvar o arquivo!
+                    saveToSystem("AI_Gerado_" + Date.now(), "texto", content);
+                    alert("Resultado salvo no Gerenciador de Arquivos!");
+                };
+            }
+        },
+
+        {
+            id: "studioAiApp",
+            nome: "Studio Vision",
+            icon: "🎬",
+            desc: "Gerador de Mídia IA",
+            html: `
+                <div id="studioAiApp" class="window">
+                    <div class="header">Studio Vision AI <button onclick="toggleApp('studioAiApp')">X</button></div>
+                    <div class="content" style="background: #020617; display:flex; flex-direction:column; gap:12px; padding:15px;">
+                        
+                        <div style="background:#1e293b; padding:10px; border-radius:8px; border-bottom:2px solid #3b82f6;">
+                            <small style="color:#94a3b8; font-size:9px; text-transform:uppercase;">Prompt de Comando</small>
+                            <textarea id="aiMediaStorePrompt" placeholder="Descreva a imagem ou vídeo..." 
+                                style="width:100%; background:transparent; border:none; color:white; font-size:12px; resize:none; outline:none; margin-top:5px; height:50px;"></textarea>
+                        </div>
+
+                        <div style="display:flex; gap:8px;">
+                            <button class="action" onclick="generateStudio('image')" style="background:#3b82f6; font-size:11px; flex:1;">🖼️ GERAR IMAGEM</button>
+                            <button class="action" onclick="generateStudio('video')" style="background:#8b5cf6; font-size:11px; flex:1;">🎬 GERAR VÍDEO</button>
+                        </div>
+
+                        <div id="studioDisplay" style="flex:1; background:#000; border-radius:12px; display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative; border:1px solid #334155;">
+                            <p id="studioPlaceholder" style="color:#475569; font-size:11px;">Aguardando criação...</p>
+                            <div id="studioLoader" style="display:none; text-align:center;">
+                                <div style="width:30px; height:30px; border:3px solid #3b82f6; border-top-color:transparent; border-radius:50%; animation: spin 1s linear infinite; margin:0 auto;"></div>
+                                <p style="font-size:10px; color:#3b82f6; margin-top:10px;">Processando Mídia...</p>
+                            </div>
+                        </div>
+
+                        <button id="saveStudioBtn" class="action" onclick="saveStudioContent()" style="display:none; background:#10b981;">💾 SALVAR NOS ARQUIVOS</button>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-studioAiApp" class="icon" onclick="toggleApp('studioAiApp')">🎬<br><span>Studio AI</span></div>`,
+            script: function() {
+                let lastResult = "";
+                let lastType = "";
+
+                window.generateStudio = (type) => {
+                    const prompt = document.getElementById("aiMediaStorePrompt").value;
+                    const loader = document.getElementById("studioLoader");
+                    const placeholder = document.getElementById("studioPlaceholder");
+                    const display = document.getElementById("studioDisplay");
+                    const saveBtn = document.getElementById("saveStudioBtn");
+
+                    if(!prompt) return alert("Descreva o que deseja criar!");
+
+                    placeholder.style.display = "none";
+                    saveBtn.style.display = "none";
+                    display.innerHTML = ""; 
+                    display.appendChild(loader);
+                    loader.style.display = "block";
+
+                    setTimeout(() => {
+                        loader.style.display = "none";
+                        saveBtn.style.display = "block";
+                        lastType = type;
+
+                        if(type === 'image') {
+                            const imgUrl = `https://picsum.photos/seed/${encodeURIComponent(prompt)}/400/300`;
+                            display.innerHTML = `<img src="${imgUrl}" style="width:100%; height:100%; object-fit:cover;">`;
+                            lastResult = imgUrl;
+                        } else {
+                            display.innerHTML = `
+                                <div style="text-align:center; color:white;">
+                                    <div style="font-size:40px; margin-bottom:10px;">🎞️</div>
+                                    <b style="font-size:12px;">VÍDEO GERADO</b><br>
+                                    <small style="color:#94a3b8; font-size:10px;">${prompt.substring(0,20)}...</small>
+                                </div>`;
+                            lastResult = "Simulação de Vídeo: " + prompt;
+                        }
+                    }, 2500);
+                };
+
+                window.saveStudioContent = () => {
+                    if(!lastResult) return;
+                    // Salva como foto ou texto dependendo do que foi gerado
+                    const fileType = lastType === 'image' ? 'foto' : 'texto';
+                    saveToSystem("IA_Studio_" + Date.now(), fileType, lastResult);
+                    alert("Mídia enviada para o Explorador de Arquivos!");
+                };
+            }
+        },
+
+        {
+            id: "mapsApp",
+            nome: "Geo Maps",
+            icon: "🌍",
+            desc: "Mapas e Ruas em Tempo Real",
+            html: `
+                <div id="mapsApp" class="window">
+                    <div class="header">Geo Maps Pro <button onclick="toggleApp('mapsApp')">X</button></div>
+                    <div class="content" style="padding:0; overflow:hidden; display:flex; flex-direction:column; background:#0f172a; position:relative;">
+                        
+                        <div style="padding:8px; background:#1e293b; display:flex; gap:5px; z-index:2000; border-bottom:1px solid #334155;">
+                            <input id="mapSearch" type="text" placeholder="Digite uma cidade ou rua..." 
+                                   style="flex:1; margin:0; font-size:12px; padding:10px; border-radius:5px; border:none; background:#0f172a; color:#4ade80; outline:none;">
+                            <button onclick="searchLocation()" style="background:#3b82f6; color:white; border:none; padding:5px 12px; border-radius:5px; font-weight:bold; cursor:pointer;">IR</button>
+                        </div>
+
+                        <div id="mapContainer" style="flex:1; width:100%; background:#020617;">
+                            <div id="mapLoading" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:#94a3b8; font-size:11px; z-index:1000;">
+                                Carregando Satélite...
+                            </div>
+                        </div>
+
+                        <div style="background:#020617; padding:5px; font-size:9px; color:#64748b; text-align:center; border-top:1px solid #1e293b;">
+                            OpenStreetMap Live Data v1.9
+                        </div>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-mapsApp" class="icon" onclick="toggleApp('mapsApp'); initMap();">🌍<br><span>Maps</span></div>`,
+            script: function() {
+                let map;
+
+                // Inicializa o mapa real quando o app é aberto
+                window.initMap = () => {
+                    setTimeout(() => {
+                        const container = document.getElementById('mapContainer');
+                        if (!container || map) return; // Se já existir ou não achar o container, cancela
+
+                        // Carrega o CSS do Leaflet (Estilos do Mapa)
+                        if (!document.querySelector('link[href*="leaflet.css"]')) {
+                            const link = document.createElement('link');
+                            link.rel = 'stylesheet';
+                            link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+                            document.head.appendChild(link);
+                        }
+
+                        // Carrega o Script do Leaflet (Motor do Mapa)
+                        const script = document.createElement('script');
+                        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+                        script.onload = () => {
+                            // Cria o mapa e foca no Brasil por padrão
+                            map = L.map('mapContainer', { zoomControl: false }).setView([-15.78, -47.92], 4);
+
+                            // Adiciona as camadas de ruas (OpenStreetMap)
+                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                                attribution: '© OSM'
+                            }).addTo(map);
+
+                            // Adiciona botões de Zoom no canto inferior
+                            L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+                            document.getElementById('mapLoading').style.display = 'none';
+                            
+                            // Ajusta o tamanho para caber na janela do Acode OS
+                            setTimeout(() => map.invalidateSize(), 500);
+                        };
+                        document.head.appendChild(script);
+                    }, 400);
+                };
+
+                // Função de Busca de Endereços
+                window.searchLocation = async () => {
+                    const query = document.getElementById("mapSearch").value;
+                    if(!query || !map) return;
+
+                    try {
+                        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+                        const data = await res.json();
+                        if(data.length > 0) {
+                            const { lat, lon } = data[0];
+                            map.setView([lat, lon], 15); // Zoom de 15 para ver as ruas detalhadas
+                            L.marker([lat, lon]).addTo(map).bindPopup("<b>" + query + "</b>").openPopup();
+                        } else {
+                            alert("Local não encontrado no banco de dados.");
+                        }
+                    } catch (e) {
+                        alert("Erro de conexão com o satélite.");
+                    }
+                };
+            }
+        },
+
+        {
+            id: "translatorApp",
+            nome: "Polyglot AI",
+            icon: "🔤",
+            desc: "Tradução Instantânea",
+            html: `
+                <div id="translatorApp" class="window">
+                    <div class="header">Polyglot AI <button onclick="toggleApp('translatorApp')">X</button></div>
+                    <div class="content" style="background: #0f172a; display:flex; flex-direction:column; gap:12px; padding:15px;">
+                        
+                        <div style="display:flex; gap:8px; align-items:center; background:#1e293b; padding:8px; border-radius:8px;">
+                            <select id="langFrom" style="flex:1; background:transparent; color:#4ade80; border:none; font-size:11px; outline:none; cursor:pointer;">
+                                <option value="pt">Português</option>
+                                <option value="en">Inglês</option>
+                                <option value="es">Espanhol</option>
+                                <option value="fr">Francês</option>
+                                <option value="ja">Japonês</option>
+                            </select>
+                            <span style="color:#64748b; font-size:12px;">➔</span>
+                            <select id="langTo" style="flex:1; background:transparent; color:#3b82f6; border:none; font-size:11px; outline:none; cursor:pointer;">
+                                <option value="en" selected>Inglês</option>
+                                <option value="pt">Português</option>
+                                <option value="es">Espanhol</option>
+                                <option value="fr">Francês</option>
+                                <option value="ja">Japonês</option>
+                            </select>
+                        </div>
+
+                        <textarea id="translateInput" placeholder="Digite para traduzir..." 
+                            style="width:100%; height:90px; background:#1e293b; border:1px solid #334155; color:white; padding:12px; border-radius:10px; font-size:14px; resize:none; outline:none; transition: border 0.3s;"></textarea>
+                        
+                        <button class="action" onclick="runTranslation()" style="background:#3b82f6; height:45px; border-radius:10px; font-weight:bold; letter-spacing:1px;">TRADUZIR</button>
+
+                        <div id="translateResult" style="flex:1; background:#020617; border-radius:10px; padding:15px; border:1px solid #334155; position:relative; min-height:100px; display:flex; flex-direction:column;">
+                            <div id="transLoader" style="display:none; position:absolute; top:10px; right:10px;">
+                                <div style="width:15px; height:15px; border:2px solid #4ade80; border-top-color:transparent; border-radius:50%; animation: spin 1s linear infinite;"></div>
+                            </div>
+                            <div id="translatedText" style="font-size:14px; color:#cbd5e1; line-height:1.5; font-style:italic;">Aguardando texto...</div>
+                        </div>
+
+                        <button onclick="copyTranslation()" style="background:none; border:none; color:#64748b; font-size:10px; text-align:right; cursor:pointer;">📋 COPIAR TRADUÇÃO</button>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-translatorApp" class="icon" onclick="toggleApp('translatorApp')">🔤<br><span>Tradutor</span></div>`,
+            script: function() {
+                window.runTranslation = async () => {
+                    const text = document.getElementById("translateInput").value;
+                    const from = document.getElementById("langFrom").value;
+                    const to = document.getElementById("langTo").value;
+                    const loader = document.getElementById("transLoader");
+                    const out = document.getElementById("translatedText");
+
+                    if(!text.trim()) {
+                        out.innerText = "Por favor, digite algo.";
+                        return;
+                    }
+
+                    // Efeito visual de carregamento rápido
+                    loader.style.display = "block";
+                    out.style.opacity = "0.5";
+
+                    try {
+                        const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`);
+                        const data = await response.json();
+                        
+                        loader.style.display = "none";
+                        out.style.opacity = "1";
+                        out.style.fontStyle = "normal";
+                        out.innerText = data.responseData.translatedText;
+                    } catch (e) {
+                        loader.style.display = "none";
+                        out.innerText = "Erro na conexão.";
+                    }
+                };
+
+                window.copyTranslation = () => {
+                    const text = document.getElementById("translatedText").innerText;
+                    if(text && text !== "Aguardando texto...") {
+                        navigator.clipboard.writeText(text);
+                        // Feedback silencioso: muda a cor do botão rapidinho
+                        const btn = event.target;
+                        const original = btn.innerText;
+                        btn.innerText = "✓ COPIADO!";
+                        btn.style.color = "#4ade80";
+                        setTimeout(() => { btn.innerText = original; btn.style.color = "#64748b"; }, 1500);
+                    }
+                };
+            }
+        },
+
+        {
+            id: "animaxStudioApp",
+            nome: "Animax Studio",
+            icon: "🎬",
+            desc: "Editor de Animação",
+            html: `
+                <div id="animaxStudioApp" class="window">
+                    <div class="header">Animax Studio Pro <button onclick="toggleApp('animaxStudioApp')">X</button></div>
+                    <div class="content" style="background: #0f172a; display:flex; flex-direction:column; padding:10px; gap:10px; overflow:hidden;">
+                        
+                        <div style="display:flex; gap:10px; background:#1e293b; padding:10px; border-radius:8px; border:1px solid #334155;">
+                            <button onclick="addActor('⭐')" style="background:#3b82f6; border:none; color:white; padding:5px 10px; border-radius:4px; font-size:12px; cursor:pointer;">+ Estrela</button>
+                            <button onclick="addActor('🤖')" style="background:#8b5cf6; border:none; color:white; padding:5px 10px; border-radius:4px; font-size:12px; cursor:pointer;">+ Robô</button>
+                            <button onclick="addActor('🚀')" style="background:#f59e0b; border:none; color:white; padding:5px 10px; border-radius:4px; font-size:12px; cursor:pointer;">+ Foguete</button>
+                            <button onclick="playAnimation()" style="background:#10b981; border:none; color:white; padding:5px 15px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer; margin-left:auto;">▶ PLAY</button>
+                        </div>
+
+                        <div id="animStage" style="flex:1; background:#020617; border-radius:12px; border:2px dashed #1e293b; position:relative; overflow:hidden;">
+                            <p id="stageHint" style="color:#334155; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); font-size:12px;">Arraste os atores para posicionar</p>
+                        </div>
+
+                        <div style="background:#1e293b; padding:10px; border-radius:8px; border:1px solid #334155;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                                <small style="color:#94a3b8; font-size:9px;">TIMELINE (DURAÇÃO: 3s)</small>
+                                <small id="animStatus" style="color:#4ade80; font-size:9px;">PRONTO</small>
+                            </div>
+                            <div style="width:100%; height:4px; background:#0f172a; border-radius:2px; position:relative;">
+                                <div id="playhead" style="width:2px; height:12px; background:#ef4444; position:absolute; top:-4px; left:0; transition: left 3s linear;"></div>
+                            </div>
+                        </div>
+
+                        <button class="action" onclick="exportMovie()" style="background:transparent; border:1px solid #3b82f6; color:#3b82f6; font-size:11px;">💾 EXPORTAR FILME</button>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-animaxStudioApp" class="icon" onclick="toggleApp('animaxStudioApp')">🎬<br><span>Animax</span></div>`,
+            script: function() {
+                let actors = [];
+
+                window.addActor = (emoji) => {
+                    const stage = document.getElementById("animStage");
+                    const hint = document.getElementById("stageHint");
+                    if(hint) hint.style.display = "none";
+
+                    const actor = document.createElement("div");
+                    const id = "actor_" + Date.now();
+                    
+                    actor.id = id;
+                    actor.innerText = emoji;
+                    actor.style.position = "absolute";
+                    actor.style.fontSize = "40px";
+                    actor.style.cursor = "move";
+                    actor.style.left = "20px";
+                    actor.style.top = "20px";
+                    actor.style.transition = "all 3s cubic-bezier(0.4, 0, 0.2, 1)";
+                    actor.style.userSelect = "none";
+
+                    // Lógica de Arrastar (Mobile e PC)
+                    let isDragging = false;
+                    actor.onmousedown = (e) => { isDragging = true; };
+                    stage.onmousemove = (e) => {
+                        if(isDragging) {
+                            const rect = stage.getBoundingClientRect();
+                            actor.style.left = (e.clientX - rect.left - 20) + "px";
+                            actor.style.top = (e.clientY - rect.top - 20) + "px";
+                        }
+                    };
+                    window.onmouseup = () => { isDragging = false; };
+
+                    stage.appendChild(actor);
+                    actors.push(actor);
+                };
+
+                window.playAnimation = () => {
+                    const playhead = document.getElementById("playhead");
+                    const status = document.getElementById("animStatus");
+                    
+                    status.innerText = "REPRODUZINDO...";
+                    status.style.color = "#f59e0b";
+                    playhead.style.left = "0";
+                    
+                    // Pequeno delay para disparar a transição
+                    setTimeout(() => {
+                        playhead.style.left = "100%";
+                        actors.forEach(actor => {
+                            // Animação: Move para o lado oposto ou aleatório
+                            const stage = document.getElementById("animStage");
+                            const maxX = stage.clientWidth - 50;
+                            const maxY = stage.clientHeight - 50;
+                            actor.style.left = Math.random() * maxX + "px";
+                            actor.style.top = Math.random() * maxY + "px";
+                            actor.style.transform = "rotate(360deg) scale(1.5)";
+                        });
+                    }, 50);
+
+                    setTimeout(() => {
+                        status.innerText = "PRONTO";
+                        status.style.color = "#4ade80";
+                        playhead.style.transition = "none";
+                        playhead.style.left = "0";
+                        setTimeout(() => playhead.style.transition = "left 3s linear", 50);
+                        actors.forEach(a => a.style.transform = "rotate(0deg) scale(1)");
+                    }, 3100);
+                };
+
+                window.exportMovie = () => {
+                    if(actors.length === 0) return alert("Adicione atores primeiro!");
+                    const report = `Filme com ${actors.length} atores exportado com sucesso.`;
+                    saveToSystem("Projeto_Animax_" + Date.now(), "texto", report);
+                    alert("Projeto salvo nos seus arquivos!");
+                };
+            }
+        },
+
+        {
+            id: "empireGameApp",
+            nome: "Empire Frontier",
+            icon: "🏰",
+            desc: "Conquista de Território",
+            html: `
+                <div id="empireGameApp" class="window">
+                    <div class="header">Empire Frontier v1.0 <button onclick="toggleApp('empireGameApp')">X</button></div>
+                    <div class="content" style="background: #1a1a1a; display:flex; flex-direction:column; padding:15px; gap:10px; color:white; overflow:hidden;">
+                        
+                        <div style="display:flex; justify-content:space-between; background:#262626; padding:10px; border-radius:8px; border:1px solid #3b82f6;">
+                            <div style="text-align:center;"><small style="color:#94a3b8; font-size:9px;">OURO</small><div id="gameGold" style="font-weight:bold; color:#f59e0b;">50</div></div>
+                            <div style="text-align:center;"><small style="color:#94a3b8; font-size:9px;">TERRITÓRIO</small><div id="gameLand" style="font-weight:bold; color:#4ade80;">10%</div></div>
+                            <div style="text-align:center;"><small style="color:#94a3b8; font-size:9px;">SOLDADOS</small><div id="gameArmy" style="font-weight:bold; color:#ef4444;">5</div></div>
+                        </div>
+
+                        <div id="gameMap" style="flex:1; background:#000; border-radius:12px; position:relative; overflow:hidden; border:2px solid #333; display:flex; align-items:center; justify-content:center;">
+                            <div id="landCircle" style="width:50px; height:50px; background:radial-gradient(#4ade80, #166534); border-radius:50%; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 0 20px rgba(74, 222, 128, 0.3);"></div>
+                            <p id="gameMsg" style="position:absolute; bottom:10px; font-size:10px; color:#666;">Clique no centro para expandir o império</p>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                            <button class="action" onclick="expandLand()" style="background:#059669; font-size:11px;">🚩 EXPANDIR (-10 Ouro)</button>
+                            <button class="action" onclick="recruitArmy()" style="background:#dc2626; font-size:11px;">⚔️ RECRUTAR (-15 Ouro)</button>
+                        </div>
+
+                        <button class="action" onclick="saveEmpireRecord()" style="background:transparent; border:1px solid #3b82f6; color:#3b82f6; font-size:10px; margin-top:5px;">💾 SALVAR RECORDE</button>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-empireGameApp" class="icon" onclick="toggleApp('empireGameApp'); initEmpireGame();">🏰<br><span>Empire</span></div>`,
+            script: function() {
+                let gold = 50;
+                let land = 10;
+                let army = 5;
+
+                const updateHUD = () => {
+                    document.getElementById("gameGold").innerText = gold;
+                    document.getElementById("gameLand").innerText = land + "%";
+                    document.getElementById("gameArmy").innerText = army;
+                    
+                    const circle = document.getElementById("landCircle");
+                    if(circle) circle.style.transform = `scale(${1 + land/50})`;
+                };
+
+                window.initEmpireGame = () => {
+                    // Loop de renda passiva (Matemática: Soldados geram ouro mas consomem chance de revolta)
+                    if(window.empireInterval) clearInterval(window.empireInterval);
+                    window.empireInterval = setInterval(() => {
+                        const gameWin = document.getElementById("empireGameApp");
+                        if(gameWin && gameWin.style.display === 'flex') {
+                            gold += Math.floor(army / 2);
+                            updateHUD();
+                        }
+                    }, 2000);
+                };
+
+                window.expandLand = () => {
+                    if(gold >= 10 && land < 100) {
+                        gold -= 10;
+                        land += 5;
+                        updateHUD();
+                    } else if (land >= 100) {
+                        alert("Império Máximo Alcançado!");
+                    } else {
+                        alert("Ouro insuficiente!");
+                    }
+                };
+
+                window.recruitArmy = () => {
+                    if(gold >= 15) {
+                        gold -= 15;
+                        army += 2;
+                        updateHUD();
+                    } else {
+                        alert("Ouro insuficiente!");
+                    }
+                };
+
+                window.saveEmpireRecord = () => {
+                    const record = `Império com ${land}% de território e ${army} generais.`;
+                    saveToSystem("Recorde_Empire_" + Date.now(), "texto", record);
+                    alert("Seu progresso foi salvo nos arquivos do sistema!");
+                };
+            }
+        },
+
+        {
+            id: "newsApp",
+            nome: "Acode News",
+            icon: "📰",
+            desc: "Notícias Mundiais Live",
+            html: `
+                <div id="newsApp" class="window">
+                    <div class="header">Acode News Central <button onclick="toggleApp('newsApp')">X</button></div>
+                    <div class="content" style="background: #f8fafc; display:flex; flex-direction:column; gap:0; padding:0; overflow:hidden;">
+                        
+                        <div style="background:#1e293b; padding:10px; display:flex; gap:10px; overflow-x:auto; white-space:nowrap; scrollbar-width: none;">
+                            <button onclick="fetchNews('technology')" style="background:#3b82f6; color:white; border:none; padding:5px 12px; border-radius:15px; font-size:10px; cursor:pointer;">Tecnologia</button>
+                            <button onclick="fetchNews('business')" style="background:#334155; color:white; border:none; padding:5px 12px; border-radius:15px; font-size:10px; cursor:pointer;">Negócios</button>
+                            <button onclick="fetchNews('sports')" style="background:#334155; color:white; border:none; padding:5px 12px; border-radius:15px; font-size:10px; cursor:pointer;">Esportes</button>
+                            <button onclick="fetchNews('science')" style="background:#334155; color:white; border:none; padding:5px 12px; border-radius:15px; font-size:10px; cursor:pointer;">Ciência</button>
+                        </div>
+
+                        <div id="newsFeed" style="flex:1; overflow-y:auto; padding:15px; display:flex; flex-direction:column; gap:15px; background:#f1f5f9;">
+                            <div style="text-align:center; margin-top:50px; color:#64748b;">
+                                <div style="width:30px; height:30px; border:3px solid #3b82f6; border-top-color:transparent; border-radius:50%; animation: spin 1s linear infinite; margin:0 auto 10px;"></div>
+                                <p style="font-size:12px;">Sincronizando com satélites...</p>
+                            </div>
+                        </div>
+
+                        <div style="padding:8px; background:white; border-top:1px solid #e2e8f0; text-align:center;">
+                            <button class="action" onclick="fetchNews('general')" style="background:transparent; border:1px solid #3b82f6; color:#3b82f6; font-size:10px; width:auto; padding:5px 20px;">🔄 ATUALIZAR FEED</button>
+                        </div>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-newsApp" class="icon" onclick="toggleApp('newsApp'); fetchNews('technology');">📰<br><span>Notícias</span></div>`,
+            script: function() {
+                window.fetchNews = async (category) => {
+                    const feed = document.getElementById("newsFeed");
+                    if(!feed) return;
+
+                    feed.innerHTML = `
+                        <div style="text-align:center; margin-top:50px; color:#64748b;">
+                            <div style="width:30px; height:30px; border:3px solid #3b82f6; border-top-color:transparent; border-radius:50%; animation: spin 1s linear infinite; margin:0 auto 10px;"></div>
+                            <p style="font-size:11px;">Buscando ${category}...</p>
+                        </div>`;
+
+                    try {
+                        // Usando uma API de notícias real e gratuita (CurrentsAPI ou NewsAPI via Proxy)
+                        // Para este exemplo, usamos o motor de busca do sistema para simular os títulos mais recentes
+                        const response = await fetch(`https://api.ok.ru/fb.do?method=search.quick&query=${category}&type=news`); 
+                        // Simulador de notícias caso o fetch demore ou falhe
+                        setTimeout(() => {
+                            const mockNews = [
+                                { t: `Nova Inteligência Artificial supera humanos em ${category}`, d: "Pesquisadores anunciam marco histórico no setor." },
+                                { t: `Mercado Global de ${category} sobe 15% esta manhã`, d: "Investidores estão otimistas com os novos relatórios trimestrais." },
+                                { t: `Conferência mundial de ${category} começa em Dubai`, d: "Líderes de 50 países se reúnem para discutir o futuro." },
+                                { t: `Descoberta incrível na área de ${category} choca especialistas`, d: "Ninguém esperava por essa mudança radical no setor." }
+                            ];
+
+                            feed.innerHTML = "";
+                            mockNews.forEach(item => {
+                                const card = document.createElement("div");
+                                card.style = "background:white; padding:15px; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.05); border-left:4px solid #3b82f6;";
+                                card.innerHTML = `
+                                    <h4 style="margin:0; font-size:13px; color:#1e293b;">${item.t}</h4>
+                                    <p style="margin:8px 0 0; font-size:11px; color:#64748b; line-height:1.4;">${item.d}</p>
+                                    <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
+                                        <span style="font-size:9px; color:#94a3b8;">Fonte: Global News</span>
+                                        <button onclick="saveNewsToSystem('${item.t}')" style="background:none; border:none; color:#3b82f6; font-size:10px; cursor:pointer;">💾 Salvar</button>
+                                    </div>
+                                `;
+                                feed.appendChild(card);
+                            });
+                        }, 1200);
+
+                    } catch (e) {
+                        feed.innerHTML = "<p style='text-align:center; font-size:12px; color:#ef4444;'>Erro ao carregar notícias.</p>";
+                    }
+                };
+
+                window.saveNewsToSystem = (title) => {
+                    if(typeof saveToSystem === "function") {
+                        saveToSystem("Noticia_" + Date.now(), "texto", title);
+                        alert("Manchete salva nos seus arquivos!");
+                    } else {
+                        alert("Notícia salva!");
+                    }
+                };
+            }
+        },
+
+
+        {
+            id: "aiAssistant", 
+            nome: "Lumina AI", 
+            icon: "🧠", 
+            desc: "Assistente Virtual",
+            html: `
+                <div id="aiAssistant" class="window" style="width:340px; height:480px; background:#020617;">
+                    <div class="header" style="background:linear-gradient(90deg, #1e1b4b, #312e81);">Lumina Assistant <button onclick="toggleApp('aiAssistant')">X</button></div>
+                    <div class="content" style="display:flex; flex-direction:column; padding:15px; gap:15px; align-items:center;">
+                        
+                        <div id="aiCore" style="width:80px; height:80px; background:radial-gradient(circle, #818cf8, #3730a3); border-radius:50%; box-shadow: 0 0 20px #6366f1; transition: 0.5s; display:flex; align-items:center; justify-content:center;">
+                            <div style="width:40px; height:40px; border:2px solid rgba(255,255,255,0.2); border-radius:50%; animation: pulse 2s infinite;"></div>
+                        </div>
+
+                        <div id="aiStatus" style="font-size:10px; color:#818cf8; font-family:monospace; text-transform:uppercase; letter-spacing:2px;">Sistema Online</div>
+
+                        <div id="aiChat" style="flex:1; width:100%; background:rgba(30,41,59,0.5); border-radius:10px; padding:10px; overflow-y:auto; color:#cbd5e1; font-size:12px; display:flex; flex-direction:column; gap:10px; border:1px solid #1e293b;">
+                            <div style="color:#818cf8;"><b>Lumina:</b> Olá! Sou a inteligência do Acode OS. Como posso ajudar na sua build hoje?</div>
+                        </div>
+
+                        <div style="width:100%; display:flex; gap:8px;">
+                            <input id="aiInput" placeholder="Pergunte algo..." style="flex:1; background:#0f172a; border:1px solid #334155; border-radius:20px; padding:8px 15px; color:white; outline:none; font-size:12px;">
+                            <button onclick="askAI()" style="background:#6366f1; border:none; width:35px; height:35px; border-radius:50%; cursor:pointer; color:white;">⚡</button>
+                        </div>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-aiAssistant" class="icon" onclick="toggleApp('aiAssistant')">🧠<br><span>Lumina</span></div>`,
+            script: function() {
+                const chat = document.getElementById("aiChat");
+                const input = document.getElementById("aiInput");
+                const core = document.getElementById("aiCore");
+                const status = document.getElementById("aiStatus");
+
+                window.askAI = () => {
+                    const text = input.value.trim().toLowerCase();
+                    if(!text) return;
+
+                    // Adiciona fala do usuário
+                    addText("Você", text, "#fff");
+                    input.value = "";
+
+                    // Efeito de "Pensando"
+                    core.style.boxShadow = "0 0 40px #f43f5e";
+                    status.innerText = "Processando...";
+                    
+                    setTimeout(() => {
+                        let response = "Interessante... Como uma IA em fase de testes, ainda estou aprendendo sobre o Acode OS.";
+                        
+                        // Lógica de Respostas Inteligentes baseadas no seu sistema
+                        if(text.includes("quem é você")) response = "Eu sou a Lumina, a inteligência artificial nativa do Acode OS, criada para otimizar seus projetos de mobile dev.";
+                        if(text.includes("hora") || text.includes("tempo")) response = "Agora são exatamente " + new Date().toLocaleTimeString() + ".";
+                        if(text.includes("foto") || text.includes("camera")) response = "Você pode capturar momentos reais usando o app de Câmera e salvá-los na Galeria.";
+                        if(text.includes("memória") || text.includes("disco")) response = "O seu disco C: tem 64GB. Recomendo monitorar o uso no app Gerenciador.";
+                        if(text.includes("limpar")) { 
+                            response = "Comando recebido. Limpando logs temporários...";
+                            if(window.pushNotif) pushNotif("Lumina", "Cache do sistema otimizado.");
+                        }
+
+                        addText("Lumina", response, "#818cf8");
+                        core.style.boxShadow = "0 0 20px #6366f1";
+                        status.innerText = "Sistema Online";
+                    }, 1500);
+                };
+
+                function addText(user, msg, color) {
+                    const div = document.createElement("div");
+                    div.innerHTML = `<b style="color:${color}">${user}:</b> ${msg}`;
+                    chat.appendChild(div);
+                    chat.scrollTop = chat.scrollHeight;
+                }
+
+                // Adicionar animação de pulso se não existir
+                if(!document.getElementById('aiStyles')) {
+                    const s = document.createElement('style');
+                    s.id = 'aiStyles';
+                    s.innerHTML = "@keyframes pulse { 0% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.5); opacity: 0; } 100% { transform: scale(1); opacity: 0.5; } }";
+                    document.head.appendChild(s);
+                }
+            }
+        },
+
+        {
+            id: "weatherApp",
+            nome: "Clima Real",
+            icon: "☁️",
+            desc: "Previsão do tempo ao vivo",
+            html: `
+                <div id="weatherApp" class="window">
+                    <div class="header">Clima Real <button onclick="toggleApp('weatherApp')">X</button></div>
+                    <div class="content" id="weatherContent" style="background: linear-gradient(to bottom, #1e293b, #0f172a); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; transition: background 0.5s;">
+                        <div id="weatherIcon" style="font-size: 60px; margin-bottom: 10px;">⌛</div>
+                        <div id="tempDisplay" style="font-size: 38px; font-weight: bold; color: white;">--°C</div>
+                        <div id="cityDisplay" style="font-size: 16px; color: #94a3b8; margin-bottom: 5px;">Carregando...</div>
+                        <div id="descDisplay" style="font-size: 14px; color: #4ade80; text-transform: capitalize;">Buscando dados</div>
+                        
+                        <div style="margin-top: 20px; display: flex; gap: 15px; font-size: 12px; color: #cbd5e1;">
+                            <div>💧 Humidade: <span id="humDisplay">--</span>%</div>
+                            <div>🌬️ Vento: <span id="windDisplay">--</span> km/h</div>
+                        </div>
+                        <button class="action" onclick="updateWeather()" style="margin-top:20px; width: 60%; font-size: 10px; background: rgba(255,255,255,0.1);">ATUALIZAR</button>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-weatherApp" class="icon" onclick="toggleApp('weatherApp'); updateWeather();">☁️<br><span>Clima</span></div>`,
+            script: function() {
+                window.updateWeather = async () => {
+                    const content = document.getElementById("weatherContent");
+                    const iconDiv = document.getElementById("weatherIcon");
+                    const cityDiv = document.getElementById("cityDisplay");
+                    const tempDiv = document.getElementById("tempDisplay");
+                    const descDiv = document.getElementById("descDisplay");
+
+                    // Localização aproximada por IP (gratuito e sem chave de API complexa para teste)
+                    try {
+                        const locRes = await fetch('https://ipapi.co/json/');
+                        const locData = await locRes.json();
+                        const city = locData.city || "São Paulo";
+                        
+                        // Busca clima real (Usando Open-Meteo que é gratuito e não pede Key)
+                        const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${locData.latitude}&longitude=${locData.longitude}&current_weather=true&timezone=auto`);
+                        const weatherData = await weatherRes.json();
+                        const current = weatherData.current_weather;
+                        const hour = new Date().getHours();
+                        const isNight = hour < 6 || hour > 18;
+
+                        cityDiv.innerText = city;
+                        tempDiv.innerText = Math.round(current.temperature) + "°C";
+                        document.getElementById("humDisplay").innerText = "--"; 
+                        document.getElementById("windDisplay").innerText = current.windspeed;
+
+                        // Lógica de Ícones e Fundo (Dia/Noite e Clima)
+                        let weatherType = "Céu Limpo";
+                        let icon = isNight ? "🌙" : "☀️";
+                        let bg = isNight ? "linear-gradient(to bottom, #020617, #1e293b)" : "linear-gradient(to bottom, #3b82f6, #60a5fa)";
+
+                        const code = current.weathercode;
+                        if(code >= 1 && code <= 3) { icon = isNight ? "☁️" : "🌤️"; weatherType = "Parcialmente Nublado"; }
+                        else if(code >= 45) { icon = "🌫️"; weatherType = "Nevoeiro"; bg = "linear-gradient(to bottom, #475569, #94a3b8)"; }
+                        else if(code >= 51) { icon = "🌧️"; weatherType = "Chuva"; bg = "linear-gradient(to bottom, #334155, #475569)"; }
+
+                        content.style.background = bg;
+                        iconDiv.innerText = icon;
+                        descDiv.innerText = weatherType + (isNight ? " (Noite)" : " (Dia)");
+
+                    } catch (e) {
+                        cityDiv.innerText = "Erro ao carregar";
+                        descDiv.innerText = "Verifique a conexão";
+                    }
+                };
+            }
+        },
+
+        {
+            id: "gigaMinerApp",
+            nome: "GigaMiner",
+            icon: "⛏️",
+            desc: "Mineira GBs extras",
+            html: `
+                <div id="gigaMinerApp" class="window">
+                    <div class="header">GigaMiner Tycoon <button onclick="toggleApp('gigaMinerApp')">X</button></div>
+                    <div class="content" style="background: #0f172a; display:flex; flex-direction:column; align-items:center; gap:15px; padding:20px;">
+                        
+                        <div style="background:#1e293b; width:100%; padding:15px; border-radius:12px; text-align:center; border:1px solid #3b82f6;">
+                            <div style="font-size:10px; color:#94a3b8; text-transform:uppercase;">Moedas de Dados</div>
+                            <div id="coinDisplay" style="font-size:28px; font-weight:bold; color:#f59e0b;">0</div>
+                            <div style="font-size:10px; color:#94a3b8; margin-top:8px;">Armazenamento Atual</div>
+                            <div id="storageDisplay" style="font-size:18px; color:#4ade80;">0 GB / 128 GB</div>
+                        </div>
+
+                        <div id="mineBtn" onclick="mineCoin()" style="width:100px; height:100px; background:#3b82f6; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:40px; cursor:pointer; box-shadow: 0 0 20px rgba(59,130,246,0.4); transition:transform 0.1s;">
+                            ⛏️
+                        </div>
+                        <p style="font-size:11px; color:#64748b;">Clique para minerar 1 Moeda</p>
+
+                        <button class="action" onclick="toggleMinerStore()" style="background:#6366f1;">🛒 ABRIR LOJA DE UPGRADES</button>
+
+                        <div id="minerStore" style="display:none; position:absolute; top:50px; left:10px; right:10px; bottom:10px; background:#1e293b; border-radius:8px; padding:15px; z-index:100; border:1px solid #6366f1;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+                                <b>Loja de Discos</b>
+                                <button onclick="toggleMinerStore()" style="background:none; border:none; color:#ef4444; font-weight:bold;">FECHAR</button>
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap:8px;">
+                                <button class="action" style="font-size:12px;" onclick="buyStorage(16, 100)">📦 +16 GB (100 Moedas)</button>
+                                <button class="action" style="font-size:12px;" onclick="buyStorage(32, 250)">📦 +32 GB (250 Moedas)</button>
+                                <button class="action" style="font-size:12px;" onclick="buyStorage(64, 500)">📦 +64 GB (500 Moedas)</button>
+                            </div>
+                            <p style="font-size:10px; color:#94a3b8; margin-top:10px; text-align:center;">Limite máximo: 128 GB</p>
+                        </div>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-gigaMinerApp" class="icon" onclick="toggleApp('gigaMinerApp')">⛏️<br><span>GigaMiner</span></div>`,
+            script: function() {
+                // Variáveis de estado salvas no localStorage para não perder o progresso
+                let coins = parseInt(localStorage.getItem("miner_coins")) || 0;
+                let storage = parseInt(localStorage.getItem("miner_storage")) || 0;
+
+                const updateDisplay = () => {
+                    document.getElementById("coinDisplay").innerText = coins;
+                    document.getElementById("storageDisplay").innerText = storage + " GB / 128 GB";
+                };
+
+                window.mineCoin = () => {
+                    coins++;
+                    localStorage.setItem("miner_coins", coins);
+                    updateDisplay();
+                    // Efeito visual de clique
+                    const btn = document.getElementById("mineBtn");
+                    btn.style.transform = "scale(0.9)";
+                    setTimeout(() => btn.style.transform = "scale(1)", 100);
+                };
+
+                window.toggleMinerStore = () => {
+                    const store = document.getElementById("minerStore");
+                    store.style.display = (store.style.display === "none") ? "block" : "none";
+                };
+
+                window.buyStorage = (amount, cost) => {
+                    if (coins < cost) {
+                        alert("Moedas insuficientes! Continue minerando.");
+                        return;
+                    }
+                    if (storage + amount > 128) {
+                        alert("Limite de 128 GB atingido! O sistema não suporta mais espaço.");
+                        return;
+                    }
+
+                    coins -= cost;
+                    storage += amount;
+                    localStorage.setItem("miner_coins", coins);
+                    localStorage.setItem("miner_storage", storage);
+                    updateDisplay();
+                    alert(`Sucesso! Você agora tem +${amount}GB de armazenamento.`);
+                };
+
+                // Inicializa os valores ao abrir
+                setTimeout(updateDisplay, 100);
+            }
+        },
+
+        {
+            id: "webSurfApp",
+            nome: "WebSurf",
+            icon: "🌐",
+            desc: "Navegador de Sites",
+            html: `
+                <div id="webSurfApp" class="window">
+                    <div class="header">WebSurf Browser <button onclick="toggleApp('webSurfApp')">X</button></div>
+                    <div class="content" style="background: #f1f5f9; display:flex; flex-direction:column; padding:0; overflow:hidden;">
+                        
+                        <div style="background:#e2e8f0; padding:8px; display:flex; gap:5px; align-items:center; border-bottom:1px solid #cbd5e1;">
+                            <div style="display:flex; gap:5px; margin-right:5px;">
+                                <div style="width:10px; height:10px; background:#ef4444; border-radius:50%;"></div>
+                                <div style="width:10px; height:10px; background:#f59e0b; border-radius:50%;"></div>
+                                <div style="width:10px; height:10px; background:#10b981; border-radius:50%;"></div>
+                            </div>
+                            <input id="webUrlInput" type="text" placeholder="https://www.google.com" 
+                                   style="flex:1; padding:6px 12px; border-radius:20px; border:1px solid #cbd5e1; font-size:12px; outline:none;">
+                            <button onclick="navigateWebSurf()" style="background:#3b82f6; color:white; border:none; padding:6px 15px; border-radius:20px; font-size:11px; cursor:pointer; font-weight:bold;">IR</button>
+                        </div>
+
+                        <div id="webFrameContainer" style="flex:1; width:100%; background:white; position:relative;">
+                            <iframe id="webView" src="about:blank" style="width:100%; height:100%; border:none; display:none;"></iframe>
+                            
+                            <div id="webHome" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:#64748b; text-align:center; padding:20px;">
+                                <div style="font-size:50px; margin-bottom:10px;">🌐</div>
+                                <h3 style="margin:0; color:#1e293b;">Pronto para Navegar</h3>
+                                <p style="font-size:12px;">Digite uma URL acima para abrir um site externo.</p>
+                                <div style="margin-top:15px; display:flex; gap:10px;">
+                                    <button onclick="quickNav('https://www.google.com/search?igu=1')" style="background:#fff; border:1px solid #cbd5e1; padding:5px 10px; border-radius:5px; font-size:10px; cursor:pointer;">Google</button>
+                                    <button onclick="quickNav('https://www.wikipedia.org')" style="background:#fff; border:1px solid #cbd5e1; padding:5px 10px; border-radius:5px; font-size:10px; cursor:pointer;">Wikipedia</button>
+                                </div>
+                                <p style="font-size:9px; margin-top:20px; color:#94a3b8;">Nota: Alguns sites bloqueiam exibição em janelas (iframes) por segurança.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-webSurfApp" class="icon" onclick="toggleApp('webSurfApp')">🌐<br><span>WebSurf</span></div>`,
+            script: function() {
+                window.navigateWebSurf = () => {
+                    const input = document.getElementById("webUrlInput");
+                    const iframe = document.getElementById("webView");
+                    const home = document.getElementById("webHome");
+                    let url = input.value.trim();
+
+                    if(!url) return;
+
+                    // Ajusta a URL automaticamente
+                    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                        url = 'https://' + url;
+                    }
+
+                    home.style.display = "none";
+                    iframe.style.display = "block";
+                    iframe.src = url;
+                };
+
+                window.quickNav = (url) => {
+                    document.getElementById("webUrlInput").value = url;
+                    window.navigateWebSurf();
+                };
+            }
+        },
+
+
+    
+            {
+            id: "calcApp", 
+            nome: "Calculadora", 
+            icon: "🔢", 
+            desc: "Cálculos rápidos",
+            html: `
+                <div id="calcApp" class="window">
+                    <div class="header">Calculadora <button onclick="toggleApp('calcApp')">X</button></div>
+                    <div class="content" style="background:#0f172a; display:flex; flex-direction:column; gap:10px;">
+                        <input id="calcDisplay" readonly style="text-align:right; font-size:20px; background:#1e293b; color:#4ade80; border:1px solid #334155;" value="0">
+                        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:5px;">
+                            <button class="action" onclick="calcAdd('7')">7</button>
+                            <button class="action" onclick="calcAdd('8')">8</button>
+                            <button class="action" onclick="calcAdd('9')">9</button>
+                            <button class="action" style="background:#f59e0b" onclick="calcAdd('/')">/</button>
+                            
+                            <button class="action" onclick="calcAdd('4')">4</button>
+                            <button class="action" onclick="calcAdd('5')">5</button>
+                            <button class="action" onclick="calcAdd('6')">6</button>
+                            <button class="action" style="background:#f59e0b" onclick="calcAdd('*')">*</button>
+                            
+                            <button class="action" onclick="calcAdd('1')">1</button>
+                            <button class="action" onclick="calcAdd('2')">2</button>
+                            <button class="action" onclick="calcAdd('3')">3</button>
+                            <button class="action" style="background:#f59e0b" onclick="calcAdd('-')">-</button>
+                            
+                            <button class="action" style="background:#ef4444" onclick="calcClear()">C</button>
+                            <button class="action" onclick="calcAdd('0')">0</button>
+                            <button class="action" style="background:#22c55e" onclick="calcRes()">=</button>
+                            <button class="action" style="background:#f59e0b" onclick="calcAdd('+')">+</button>
+                        </div>
+                    </div>
+                </div>`,
+            btn: `<div id="icon-calcApp" class="icon" onclick="toggleApp('calcApp')">🔢<br><span>Calculadora</span></div>`,
+            script: function() {
+                window.calcAdd = (v) => {
+                    const d = document.getElementById("calcDisplay");
+                    if(d.value === "0") d.value = v; else d.value += v;
+                };
+                window.calcClear = () => { document.getElementById("calcDisplay").value = "0"; };
+                window.calcRes = () => {
+                    try {
+                        const d = document.getElementById("calcDisplay");
+                        d.value = eval(d.value);
+                    } catch { d.value = "Erro"; setTimeout(calcClear, 1000); }
+                };
+            }
+        }
+
+
+    
+    ];
+
+    function loadStore() {
+        const cat = document.getElementById("appCatalog"); cat.innerHTML = "";
+        apps.forEach((app, i) => {
+            const installed = document.getElementById(app.id) !== null;
+            const card = document.createElement("div");
+            card.style = "background:#334155; padding:12px; border-radius:10px; display:flex; align-items:center; gap:10px;";
+            card.innerHTML = `<div style='font-size:20px'>${app.icon}</div><div style='flex:1'><b>${app.nome}</b></div>
+                <button onclick="${installed ? `uninst(${i})` : `inst(${i})`}" style="background:${installed?'#ef4444':'#3b82f6'}; border:none; color:white; padding:5px 10px; border-radius:5px; font-size:10px">${installed?'REMOVER':'INSTALAR'}</button>`;
+            cat.appendChild(card);
+        });
+    }
+
+    function inst(i) {
+        document.body.insertAdjacentHTML('beforeend', apps[i].html);
+        document.getElementById("desktop").insertAdjacentHTML('beforeend', apps[i].btn);
+        if(apps[i].script) apps[i].script();
+        loadStore();
+    }
+
+    function uninst(i) {
+        document.getElementById(apps[i].id).remove();
+        document.getElementById("icon-"+apps[i].id
+    ).remove();
+        loadStore();
+    }
+
+    loadStore();
+</script>
+
+<script>
+/**
+ * SISTEMA DE SIDEBAR DINÂMICA (TOTALMENTE VIA JS)
+ * Informações: Relógio e Bateria Real
+ */
+
+
+        
+    `;
+
+    // 4. Adicionar ao documento e ajustar o desktop
+    document.body.appendChild(sidebar);
+    
+    const desktop = document.getElementById('desktop');
+    if (desktop) {
+        desktop.style.marginRight = '60px';
+    }
+
+    // 5. Função de Atualização dos Dados
+    async function updateSystemData() {
+        const now = new Date();
+        
+        // Relógio
+        const h = String(now.getHours()).padStart(2, '0');
+        const m = String(now.getMinutes()).padStart(2, '0');
+        document.getElementById('js-clock').innerText = `${h}:${m}`;
+        
+        // Data
+        const d = String(now.getDate()).padStart(2, '0');
+        const mo = String(now.getMonth() + 1).padStart(2, '0');
+        document.getElementById('js-date').innerText = `${d}/${mo}`;
+
+        // Bateria (Nativa do Navegador)
+        if (navigator.getBattery) {
+            const battery = await navigator.getBattery();
+            const level = Math.round(battery.level * 100);
+            document.getElementById('js-batt-pct').innerText = level + '%';
+            document.getElementById('js-batt-level').style.width = level + '%';
+            document.getElementById('js-batt-level').style.backgroundColor = level <= 20 ? '#ef4444' : '#4ade80';
+        }
+    }
+
+    // Iniciar loop
+    updateSystemData();
+    setInterval(updateSystemData, 30000);
+})();
+</script>
+
+(function() {
+    // 1. Criar o container da Barra Inferior
+    const bottomBar = document.createElement('div');
+    bottomBar.id = 'js-bottom-bar-os';
+    
+    // 2. Definir o Estilo (CSS) via JavaScript - Barra Inferior Full Width
+    Object.assign(bottomBar.style, {
+        position: 'fixed',
+        left: '0',
+        bottom: '0',
+        width: '100%',
+        height: '60px',
+        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+        backdropFilter: 'blur(10px)',
+        borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+        display: 'flex',
+        justifyContent: 'space-between', // Alinha os itens nas pontas e no centro
+        alignItems: 'center',
+        padding: '0 20px', // Espaçamento nas laterais internas
+        zIndex: '10000',
+        color: 'white',
+        fontFamily: 'sans-serif',
+        boxSizing: 'border-box'
+    });
+
+    // 3. Estrutura HTML Interna com os 3 elementos
+    bottomBar.innerHTML = `
+        <div style="display:flex; align-items:center; gap: 8px; width: 30%;">
+            <div style="font-size:16px;">🔋</div>
+            <div id="js-batt-pct" style="font-size:12px; font-weight:bold;">--%</div>
+            <div style="width:40px; height:6px; background:#334155; border-radius:3px; overflow:hidden;">
+                <div id="js-batt-level" style="height:100%; background:#4ade80; width:0%; transition:width 0.5s;"></div>
+            </div>
+        </div>
+
+        <div style="text-align: center; width: 40%; padding: 0 10px;">
+            <p style="font-size: 9px; color: #94a3b8; margin: 0; line-height: 1.2; text-transform: uppercase;">
+                Este sistema operacional é apenas um protótipo que será aprimorado no futuro.
+            </p>
+            <span style="color: #3b82f6; font-size: 11px; font-weight: bold; background: rgba(59, 130, 246, 0.1); padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px;">
+                V0.1.5-BETA
+            </span>
+        </div>
+
+        <div style="text-align:right; width: 30%;">
+            <div id="js-clock" style="font-size:18px; font-weight:bold; color:#4ade80; letter-spacing: 1px;">00:00</div>
+        </div>
+    `;
+
+    // 4. Adicionar ao documento
+    document.body.appendChild(bottomBar);
+
+    // 5. Ajustar o desktop (se houver um elemento com ID 'desktop')
+    const desktop = document.getElementById('desktop');
+    if (desktop) {
+        // Garante que o desktop não fique escondido atrás da barra
+        desktop.style.marginBottom = '60px';
+    }
+
+    // 6. Função de Atualização dos Dados Reais
+    async function updateSystemData() {
+        const now = new Date();
+        
+        // Atualiza Relógio
+        const h = String(now.getHours()).padStart(2, '0');
+        const m = String(now.getMinutes()).padStart(2, '0');
+        document.getElementById('js-clock').innerText = `${h}:${m}`;
+        
+        // Atualiza Bateria Real (Lê do dispositivo)
+        if (navigator.getBattery) {
+            const battery = await navigator.getBattery();
+            const level = Math.round(battery.level * 100);
+            document.getElementById('js-batt-pct').innerText = level + '%';
+            document.getElementById('js-batt-level').style.width = level + '%';
+            
+            // Muda cor da barrinha se estiver baixa (menos de 20%)
+            document.getElementById('js-batt-level').style.backgroundColor = level <= 20 ? '#ef4444' : '#4ade80';
+        }
+    }
+
+    // 7. Iniciar a atualização e definir o intervalo (30 segundos)
+    updateSystemData(); // Roda a primeira vez ao carregar
+    setInterval(updateSystemData, 30000); // Atualiza a cada 30 segundos
+})();
+
+
+</body>
+</html>
